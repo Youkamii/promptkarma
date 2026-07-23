@@ -1,12 +1,11 @@
 /**
  * Vercel serverless function: GET /api/card?u=<username>
  *
- * 우선순위:
- *   1) DB에 username의 최신 지표가 있으면 그걸로 렌더 (submit이 올린 값 → 자동 갱신)
- *   2) 없고 쿼리에 f/d/p가 오면 그 값으로 렌더 (배포 초기 폴백)
- *   3) 둘 다 없으면 "측정 중" 카드
+ * 지표 우선순위: DB(submit한 값) → 쿼리 f/d/p 폴백 → 측정 중.
+ * 외형: theme 프리셋 + 색 개별 오버라이드(bg_color, text_color, karma_color, ...).
  */
 import { renderCard } from "../src/card.js";
+import type { Theme } from "../src/card.js";
 import type { Metrics } from "../src/metrics.js";
 import { getCard } from "../src/db.js";
 
@@ -17,53 +16,59 @@ function num(v: unknown): number {
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
+/** hex 색만 허용(SVG 인젝션 차단). "#" 없으면 붙이고, 아니면 undefined. */
+function color(v: unknown): string | undefined {
+  const s = String(Array.isArray(v) ? v[0] : v ?? "").trim().replace(/^#/, "");
+  return /^[0-9a-fA-F]{3,8}$/.test(s) ? "#" + s : undefined;
+}
+function first(v: unknown): string | undefined {
+  const s = String(Array.isArray(v) ? v[0] : v ?? "").trim();
+  return s || undefined;
+}
 
 export default async function handler(req: any, res: any): Promise<void> {
   const q = req.query ?? {};
   const username = String(q.u ?? q.username ?? "you").slice(0, 39) || "you";
 
   let metrics: Metrics | null = null;
-
-  // 1) DB 조회
   try {
     const row = await getCard(username);
     if (row) {
       metrics = {
-        prompts: row.prompts,
-        slash: 0,
-        profanityRate: row.profanity,
-        competence: row.competence,
-        promptsPerSwear: row.promptsPerSwear,
-        eligible: row.prompts >= 30,
+        prompts: row.prompts, slash: 0,
+        profanityRate: row.profanity, competence: row.competence,
+        promptsPerSwear: row.promptsPerSwear, eligible: row.prompts >= 30,
       };
     }
-  } catch {
-    // DB 장애 시 폴백으로 진행
-  }
+  } catch { /* DB 장애 → 폴백 */ }
 
-  // 2) 쿼리 폴백
   if (!metrics && q.f != null) {
     const prompts = Math.max(0, Math.floor(num(q.p)));
     const pps = num(q.pps);
     metrics = {
-      prompts,
-      slash: 0,
-      profanityRate: clamp(num(q.f), 0, 100),
-      competence: clamp(num(q.d), 0, 100),
-      promptsPerSwear: pps > 0 ? pps : null,
-      eligible: prompts >= 30,
+      prompts, slash: 0,
+      profanityRate: clamp(num(q.f), 0, 100), competence: clamp(num(q.d), 0, 100),
+      promptsPerSwear: pps > 0 ? pps : null, eligible: prompts >= 30,
     };
   }
-
-  // 3) 측정 중
   if (!metrics) {
     metrics = { prompts: 0, slash: 0, profanityRate: 0, competence: 0, promptsPerSwear: null, eligible: false };
   }
 
-  const svg = renderCard({ username, metrics });
+  // 색 개별 오버라이드 (github-readme-stats 호환 파라미터명 + 우리 것)
+  const overrides: Partial<Theme> = {};
+  const bg = color(q.bg_color);
+  if (bg) { overrides.bg1 = bg; overrides.bg2 = bg; }
+  const t = color(q.text_color); if (t) overrides.ink = t;
+  const ti = color(q.title_color); if (ti) overrides.title = ti;
+  const km = color(q.karma_color); if (km) overrides.karma = km;
+  const it = color(q.intel_color); if (it) overrides.intel = it;
+  const tr = color(q.track_color); if (tr) overrides.track = tr;
+  const mu = color(q.muted_color); if (mu) overrides.muted = mu;
+  const bo = color(q.border_color); if (bo) overrides.border = bo;
+
+  const svg = renderCard({ username, metrics, theme: first(q.theme), colors: overrides });
   res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
-  // 짧게 캐시해 submit 반영을 빠르게(엣지 1분). GitHub camo는 별도 캐시라
-  // 프로필 표시 반영은 camo TTL이 지배한다(즉시가 아님).
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=300");
   res.status(200).send(svg);
 }

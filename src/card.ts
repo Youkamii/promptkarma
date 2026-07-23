@@ -1,68 +1,54 @@
 /**
- * 지표 → SVG 카드. GitHub README는 <img>로 SVG를 띄우고 CSS·JS·외부 리소스를
- * 전부 차단하므로, 스타일은 전부 인라인 속성으로 넣고 폰트는 뷰어 시스템 폰트에
- * fallback한다(웹폰트 임베드 없음). 이 파일의 출력은 그 제약 안에서만 논다.
+ * 지표 → SVG 카드. 가로형 배지(README 임베드용).
+ * 왼쪽 아바타 + 오른쪽 두 수평 게이지(karma / intelligence).
+ *
+ * 테마 프리셋 + 색 개별 오버라이드 지원(github-readme-stats 방식).
+ * GitHub README <img>는 CSS·JS·외부 리소스 차단 → 스타일 전부 인라인 속성.
+ * 라벨은 영문이라 폰트 fallback 문제 없음.
  */
 import type { Metrics } from "./metrics.js";
+
+export interface Theme {
+  bg1: string; bg2: string;
+  ink: string; muted: string; track: string;
+  karma: string; intel: string;
+  ava1: string; ava2: string;
+  border: string; title: string;
+  glow: boolean;
+}
+
+export const THEMES: Record<string, Theme> = {
+  black: {
+    bg1: "#17161f", bg2: "#0d0c12", ink: "#ececf4", muted: "#8b88a0",
+    track: "#2a2836", karma: "#c084fc", intel: "#5eead4",
+    ava1: "#3a3350", ava2: "#211d33", border: "#ffffff", title: "#c084fc", glow: false,
+  },
+  ivory: {
+    bg1: "#fdfbf5", bg2: "#f4efe3", ink: "#2e2a24", muted: "#9a9080",
+    track: "#e7dfce", karma: "#8b5cf6", intel: "#0d9488",
+    ava1: "#efe7d6", ava2: "#e2d7bf", border: "#000000", title: "#8b5cf6", glow: false,
+  },
+  cyberpunk: {
+    bg1: "#1a0b2e", bg2: "#0b0416", ink: "#f2e9ff", muted: "#a06cd5",
+    track: "#3a1a5c", karma: "#ff2e97", intel: "#00f0ff",
+    ava1: "#3d1163", ava2: "#1c0838", border: "#ff2e97", title: "#00f0ff", glow: true,
+  },
+  korean: {
+    bg1: "#f2e8d2", bg2: "#e6d9ba", ink: "#3a2a1e", muted: "#8a7550",
+    track: "#d6c39c", karma: "#c8102e", intel: "#1e5f4f",
+    ava1: "#e8d9b6", ava2: "#d4be93", border: "#c8102e", title: "#1e5f4f", glow: false,
+  },
+};
 
 export interface CardInput {
   username: string;
   metrics: Metrics;
-  /** 서버가 채우는 백분위(0~100, 높을수록 상위). 없으면 로컬 절대값으로 임시 표기. */
+  avatarDataUri?: string | null;
+  theme?: string;
+  /** 개별 색 오버라이드. 정의된 필드만 프리셋 위에 덮어쓴다. */
+  colors?: Partial<Theme>;
   profanityPct?: number | null;
   competencePct?: number | null;
-}
-
-type Personality = "evil" | "good";
-
-interface Palette {
-  bg1: string; bg2: string;
-  accent: string; accent2: string;
-  tagBg: string; tagText: string;
-  crown: string;          // 악마=뿔 / 천사=후광 색
-  ink: string; muted: string; faint: string;
-  cardBg: string; cardBorder: string;
-}
-
-const PALETTES: Record<Personality, Palette> = {
-  evil: {
-    bg1: "#fff6f1", bg2: "#ffe9e0", accent: "#f2704e", accent2: "#ff8b6b",
-    tagBg: "#ffd9cc", tagText: "#d95f3e", crown: "#6b4b45",
-    ink: "#2e1f1d", muted: "#a9756a", faint: "#c2a59d",
-    cardBg: "#fffaf7", cardBorder: "#ffd9cc",
-  },
-  good: {
-    bg1: "#f0fbff", bg2: "#dff4ff", accent: "#2f9bd4", accent2: "#66c3ea",
-    tagBg: "#cceefb", tagText: "#1f7fb0", crown: "#f4c95d",
-    ink: "#12303d", muted: "#5a8aa0", faint: "#9db9c6",
-    cardBg: "#f7fcff", cardBorder: "#cceefb",
-  },
-};
-
-interface Verdict {
-  personality: Personality;
-  capable: boolean;
-  title: string;
-  sub: string;
-  tags: [string, string];
-}
-
-/**
- * 4분면 판정. 백분위가 있으면 그걸로, 없으면 로컬 절대 임계값으로.
- * 임계값은 서버 백분위가 붙기 전까지의 임시값이다(측정된 개인 분포 기준).
- */
-function classify(m: Metrics, profanityPct?: number | null, competencePct?: number | null): Verdict {
-  const evil = profanityPct != null ? profanityPct >= 50 : m.profanityRate >= 5;
-  const capable = competencePct != null ? competencePct >= 50 : m.competence >= 40;
-  const personality: Personality = evil ? "evil" : "good";
-
-  if (evil && capable)
-    return { personality, capable, title: "유능한 폭군", sub: "험하게 굴지만, 시킬 줄은 안다", tags: ["거친 입", "치밀한 지시"] };
-  if (evil && !capable)
-    return { personality, capable, title: "성마른 진상", sub: "화는 많고, 설명은 적다", tags: ["거친 입", "막연한 지시"] };
-  if (!evil && capable)
-    return { personality, capable, title: "온화한 장인", sub: "말도 지시도 빈틈없다", tags: ["고운 말", "치밀한 지시"] };
-  return { personality, capable, title: "착한 방목자", sub: "친절하지만 다 맡긴다", tags: ["고운 말", "막연한 지시"] };
 }
 
 function esc(s: string): string {
@@ -70,112 +56,78 @@ function esc(s: string): string {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!)
   );
 }
-
-const FONT = "'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif";
-
-/** 악마 뿔 또는 천사 후광. 캐릭터 그룹 기준 좌표(얼굴 중심 150,168). */
-function crown(p: Personality, pal: Palette): string {
-  if (p === "evil") {
-    return `
-      <path d="M96,74 C80,52 78,30 88,16 C102,34 108,54 112,72 Z" fill="${pal.crown}"/>
-      <path d="M204,74 C220,52 222,30 212,16 C198,34 192,54 188,72 Z" fill="${pal.crown}"/>`;
-  }
-  // 후광: 얼굴 위 얇은 타원 링
-  return `<ellipse cx="150" cy="52" rx="66" ry="16" fill="none" stroke="${pal.crown}" stroke-width="9"/>`;
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, n));
 }
-
-/** 표정. 악마=내리깐 눈+한쪽 올린 스머크, 천사=반달 웃는눈+부드러운 미소. */
-function face(p: Personality, pal: Palette): string {
-  const blush = `
-    <circle cx="106" cy="192" r="18" fill="${pal.accent2}" opacity="0.45"/>
-    <circle cx="194" cy="192" r="18" fill="${pal.accent2}" opacity="0.45"/>`;
-  if (p === "evil") {
-    return `${blush}
-      <path d="M116,150 L146,158" stroke="#4a2f2a" stroke-width="9" stroke-linecap="round" fill="none"/>
-      <path d="M154,158 L184,150" stroke="#4a2f2a" stroke-width="9" stroke-linecap="round" fill="none"/>
-      <path d="M120,196 Q150,222 186,198" stroke="#4a2f2a" stroke-width="9" stroke-linecap="round" fill="none"/>`;
-  }
-  return `${blush}
-    <path d="M118,158 q14,-16 28,0" stroke="#2a3f4a" stroke-width="9" stroke-linecap="round" fill="none"/>
-    <path d="M154,158 q14,-16 28,0" stroke="#2a3f4a" stroke-width="9" stroke-linecap="round" fill="none"/>
-    <path d="M122,194 q28,26 56,0" stroke="#2a3f4a" stroke-width="9" stroke-linecap="round" fill="none"/>`;
-}
-
-/** 능력 신호: 유능하면 캐릭터 옆에 작은 별 세 개(절제된 반짝임). */
-function sparkles(pal: Palette): string {
-  const star = (x: number, y: number, s: number) =>
-    `<path transform="translate(${x},${y}) scale(${s})" d="M0,-10 L2.6,-2.6 L10,0 L2.6,2.6 L0,10 L-2.6,2.6 L-10,0 L-2.6,-2.6 Z" fill="${pal.accent}"/>`;
-  return `${star(70, 120, 1.1)}${star(232, 96, 0.8)}${star(238, 176, 0.6)}`;
-}
+const FONT = "'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif";
 
 export function renderCard(input: CardInput): string {
   const { username, metrics: m } = input;
-  const v = classify(m, input.profanityPct, input.competencePct);
-  const pal = PALETTES[v.personality];
+  const W = 500, H = 200, R = 16;
 
-  const W = 480, H = 600, CX = W / 2;
+  const base = THEMES[input.theme ?? "black"] ?? THEMES.black;
+  const overrides = Object.fromEntries(
+    Object.entries(input.colors ?? {}).filter(([, v]) => v != null && v !== "")
+  );
+  const C: Theme = { ...base, ...overrides } as Theme;
 
-  // 지표 note (백분위 있으면 병기)
-  const swearNote =
-    m.promptsPerSwear === null ? "욕설 없음"
-    : `약 ${Math.round(m.promptsPerSwear)}번에 한 번` +
-      (input.profanityPct != null ? ` · 상위 ${Math.round(100 - input.profanityPct)}%` : "");
-  const compNote =
-    input.competencePct != null ? `상위 ${Math.round(100 - input.competencePct)}%` : "지시의 구조화 정도";
+  const angel =
+    input.profanityPct != null
+      ? clamp(input.profanityPct, 0, 100)
+      : clamp(100 - m.profanityRate * 5, 0, 100);
+  const smart =
+    input.competencePct != null ? clamp(input.competencePct, 0, 100) : clamp(m.competence, 0, 100);
+  const angelPct = Math.round(angel);
+  const smartPct = Math.round(smart);
 
-  // 태그 칩 (가변 폭)
-  const chip = (text: string, cx: number, y: number) => {
-    const w = text.length * 15 + 44;
-    return `
-      <rect x="${cx - w / 2}" y="${y}" width="${w}" height="42" rx="21" fill="${pal.tagBg}"/>
-      <text x="${cx}" y="${y + 28}" font-family="${FONT}" font-size="20" font-weight="600" fill="${pal.tagText}" text-anchor="middle">${esc(text)}</text>`;
-  };
-  const gap = 16;
-  const w0 = v.tags[0].length * 15 + 44;
-  const w1 = v.tags[1].length * 15 + 44;
-  const tagsTotal = w0 + w1 + gap;
-  const tag0cx = CX - tagsTotal / 2 + w0 / 2;
-  const tag1cx = CX - tagsTotal / 2 + w0 + gap + w1 / 2;
+  const trackX = 168, trackW = 300, knobR = 8;
+  const y1 = 96, y2 = 148;
+  const karmaKnob = trackX + (trackW * angel) / 100;
+  const smartKnob = trackX + (trackW * smart) / 100;
 
-  // 지표 카드
-  const statCard = (x: number, label: string, value: string, note: string) => {
-    const cw = 196, cx = x + cw / 2;
-    return `
-      <rect x="${x}" y="452" width="${cw}" height="112" rx="24" fill="${pal.cardBg}" stroke="${pal.cardBorder}" stroke-width="1.5"/>
-      <text x="${cx}" y="486" font-family="${FONT}" font-size="19" font-weight="600" fill="${pal.muted}" text-anchor="middle">${esc(label)}</text>
-      <text x="${cx}" y="528" font-family="${FONT}" font-size="46" font-weight="800" fill="${pal.accent}" text-anchor="middle">${esc(value)}</text>
-      <text x="${cx}" y="552" font-family="${FONT}" font-size="15" fill="${pal.muted}" text-anchor="middle">${esc(note)}</text>`;
-  };
+  const glowFilter = C.glow ? ' filter="url(#glow)"' : "";
+  const gauge = (y: number, label: string, valueText: string, knobX: number, color: string) => `
+    <text x="${trackX}" y="${y - 14}" font-family="${FONT}" font-size="15" font-weight="600" fill="${C.muted}" letter-spacing="0.3">${esc(label)}</text>
+    <text x="${trackX + trackW}" y="${y - 14}" font-family="${FONT}" font-size="15" font-weight="700" fill="${C.ink}" text-anchor="end">${esc(valueText)}</text>
+    <rect x="${trackX}" y="${y - 3}" width="${trackW}" height="6" rx="3" fill="${C.track}"/>
+    <rect x="${trackX}" y="${y - 3}" width="${Math.max(0, knobX - trackX)}" height="6" rx="3" fill="${color}" opacity="0.5"/>
+    <circle cx="${knobX}" cy="${y}" r="${knobR}" fill="${color}"${glowFilter}/>
+    <circle cx="${knobX}" cy="${y}" r="${knobR}" fill="none" stroke="#000000" stroke-width="1.5" opacity="0.35"/>`;
 
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)}: ${esc(v.title)}">
+  const avaCx = 80, avaCy = 100, avaR = 54;
+  const avatar = input.avatarDataUri
+    ? `<clipPath id="ava"><circle cx="${avaCx}" cy="${avaCy}" r="${avaR}"/></clipPath>
+       <image href="${input.avatarDataUri}" x="${avaCx - avaR}" y="${avaCy - avaR}" width="${avaR * 2}" height="${avaR * 2}" clip-path="url(#ava)" preserveAspectRatio="xMidYMid slice"/>
+       <circle cx="${avaCx}" cy="${avaCy}" r="${avaR}" fill="none" stroke="${C.border}" stroke-width="2" opacity="0.5"/>`
+    : `<circle cx="${avaCx}" cy="${avaCy}" r="${avaR}" fill="url(#avaG)"/>
+       <text x="${avaCx}" y="${avaCy + 20}" font-family="${FONT}" font-size="52" font-weight="800" fill="${C.ink}" text-anchor="middle">${esc((username[0] ?? "?").toUpperCase())}</text>`;
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} promptkarma card">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${pal.bg1}"/>
-      <stop offset="1" stop-color="${pal.bg2}"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${C.bg1}"/>
+      <stop offset="1" stop-color="${C.bg2}"/>
     </linearGradient>
+    <linearGradient id="avaG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${C.ava1}"/>
+      <stop offset="1" stop-color="${C.ava2}"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <rect width="${W}" height="${H}" rx="28" fill="url(#bg)"/>
+  <rect width="${W}" height="${H}" rx="${R}" fill="url(#bg)"/>
+  <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="${R - 1}" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
 
-  <text x="40" y="58" font-family="${FONT}" font-size="24" font-weight="800" fill="${pal.accent}">promptkarma</text>
-  <text x="${W - 40}" y="58" font-family="${FONT}" font-size="19" fill="${pal.faint}" text-anchor="end">@${esc(username)}</text>
+  ${avatar}
 
-  ${chip(v.tags[0], tag0cx, 90)}
-  ${chip(v.tags[1], tag1cx, 90)}
+  <text x="${trackX}" y="46" font-family="${FONT}" font-size="19" font-weight="800" fill="${C.title}" letter-spacing="-0.2">promptkarma</text>
+  <text x="${trackX + trackW}" y="46" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="end">@${esc(username)}</text>
 
-  <g transform="translate(90,150) scale(0.7)">
-    <ellipse cx="150" cy="270" rx="96" ry="22" fill="${pal.accent}" opacity="0.12"/>
-    ${crown(v.personality, pal)}
-    <circle cx="150" cy="168" r="96" fill="${pal.accent2}"/>
-    ${face(v.personality, pal)}
-  </g>
-  ${v.capable ? sparkles(pal) : ""}
+  ${gauge(y1, "karma", `${angelPct}% Angel`, karmaKnob, C.karma)}
+  ${gauge(y2, "intelligence", `${smartPct}% smart`, smartKnob, C.intel)}
 
-  <text x="${CX}" y="392" font-family="${FONT}" font-size="52" font-weight="900" fill="${pal.ink}" text-anchor="middle" letter-spacing="-1">${esc(v.title)}</text>
-  <text x="${CX}" y="426" font-family="${FONT}" font-size="20" fill="${pal.muted}" text-anchor="middle">${esc(v.sub)}</text>
-
-  ${statCard(40, "욕설 발생률", m.profanityRate.toFixed(1) + "%", swearNote)}
-  ${statCard(244, "구조화 지수", m.competence.toFixed(1) + "%", compNote)}
-
-  <text x="${CX}" y="588" font-family="${FONT}" font-size="15" fill="${pal.faint}" text-anchor="middle">${m.prompts.toLocaleString("en-US")} prompts · npx promptkarma</text>
+  <text x="${trackX}" y="184" font-family="${FONT}" font-size="12.5" fill="${C.muted}">${m.prompts.toLocaleString("en-US")} prompts · npx promptkarma</text>
 </svg>`;
 }

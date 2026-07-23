@@ -40,11 +40,45 @@ npx promptkarma card <github-username>
 
 ## 내 프로필에 배지 넣기
 
-`npx promptkarma card <username>`을 실행하면 붙여넣을 마크다운 한 줄이 출력됩니다.
-GitHub README나 프로필에 붙이면 카드가 뜹니다:
+먼저 한 번 올립니다:
+
+```bash
+npx promptkarma scan
+npx promptkarma submit <your-github-username>
+```
+
+그다음 GitHub README나 프로필에 아래 한 줄을 붙입니다. 이후 `submit`할 때마다 자동 갱신됩니다:
 
 ```markdown
-![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>&f=<욕설률>&d=<구조화>&p=<프롬프트수>)
+![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>)
+```
+
+클릭 시 이동을 넣으려면(tokscale 스타일):
+
+```markdown
+[![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>)](https://github.com/<username>)
+```
+
+### 테마
+
+`?theme=` 로 프리셋을 고릅니다: `black`(기본) · `ivory` · `cyberpunk` · `korean`
+
+```markdown
+![promptkarma](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=cyberpunk)
+```
+
+| black | cyberpunk |
+|---|---|
+| ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=black) | ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=cyberpunk) |
+| **ivory** | **korean** |
+| ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=ivory) | ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=korean) |
+
+### 색 직접 지정
+
+hex 색으로 개별 오버라이드(`#` 없이). `bg_color` `text_color` `title_color` `karma_color` `intel_color` `track_color` `border_color`:
+
+```markdown
+![promptkarma](https://promptkarma.vercel.app/api/card?u=Youkamii&bg_color=47157A&karma_color=FFE881&intel_color=fff)
 ```
 
 ## 측정 정의 (v1)
