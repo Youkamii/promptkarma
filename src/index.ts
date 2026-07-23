@@ -3,9 +3,11 @@
  * promptkarma CLI.
  * v1: `scan` — 로컬 로그를 훑어 지표를 출력하고 state.json에 저장.
  */
-import { scan, saveState, claudeProjectsDir } from "./scan.js";
-import { MIN_SAMPLE } from "./metrics.js";
-import { existsSync } from "node:fs";
+import { scan, saveState, claudeProjectsDir, stateDir } from "./scan.js";
+import { MIN_SAMPLE, type Metrics } from "./metrics.js";
+import { renderCard } from "./card.js";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 function n(x: number): string {
   return x.toLocaleString("en-US");
@@ -56,6 +58,22 @@ function runScan(): void {
   console.log("");
 }
 
+function runCard(): void {
+  const statePath = join(stateDir(), "state.json");
+  if (!existsSync(statePath)) {
+    console.error("먼저 스캔이 필요합니다: promptkarma scan");
+    process.exit(1);
+  }
+  const saved = JSON.parse(readFileSync(statePath, "utf8")) as { metrics: Metrics };
+  const username = process.argv[3] ?? "you";
+
+  const svg = renderCard({ username, metrics: saved.metrics });
+  const out = join(stateDir(), "card.svg");
+  writeFileSync(out, svg);
+  console.log(`카드 생성됨: ${out}`);
+  console.log("마크다운 임베드(서버 배포 후): ![](https://<도메인>/api/card/" + username + ")");
+}
+
 function help(): void {
   console.log(`
 promptkarma — AI CLI 세션에서 당신의 프롬프트를 측정합니다.
@@ -76,6 +94,9 @@ const cmd = process.argv[2] ?? "scan";
 switch (cmd) {
   case "scan":
     runScan();
+    break;
+  case "card":
+    runCard();
     break;
   case "-h":
   case "--help":
