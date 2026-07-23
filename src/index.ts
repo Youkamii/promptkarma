@@ -86,13 +86,53 @@ function runCard(): void {
   console.log(`![promptkarma](${url})`);
 }
 
+const API_BASE = process.env.PROMPTKARMA_API ?? "https://promptkarma.vercel.app";
+
+async function runSubmit(): Promise<void> {
+  const statePath = join(stateDir(), "state.json");
+  if (!existsSync(statePath)) {
+    console.error("먼저 스캔이 필요합니다: promptkarma scan");
+    process.exit(1);
+  }
+  const username = process.argv[3];
+  if (!username) {
+    console.error("사용법: promptkarma submit <github-username>");
+    process.exit(1);
+  }
+  const m = (JSON.parse(readFileSync(statePath, "utf8")) as { metrics: Metrics }).metrics;
+
+  const res = await fetch(`${API_BASE}/api/submit`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      u: username,
+      f: m.profanityRate,
+      d: m.competence,
+      p: m.prompts,
+      pps: m.promptsPerSwear ?? 0,
+    }),
+  });
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) {
+    console.error(`제출 실패 (${res.status}): ${body.error ?? "알 수 없음"}`);
+    process.exit(1);
+  }
+
+  const url = `${API_BASE}/api/card?u=${encodeURIComponent(username)}`;
+  console.log(`제출 완료: ${username}`);
+  console.log("\n이제 이 한 줄만 넣으면 스캔할 때마다 자동 갱신됩니다:");
+  console.log(`![promptkarma](${url})`);
+}
+
 function help(): void {
   console.log(`
 promptkarma — AI CLI 세션에서 당신의 프롬프트를 측정합니다.
 
 사용법:
-  promptkarma scan     로컬 로그를 스캔하고 지표를 출력
-  promptkarma --help   이 도움말
+  promptkarma scan              로컬 로그를 스캔하고 지표를 출력
+  promptkarma card <username>   지표를 SVG 카드로 렌더(로컬)
+  promptkarma submit <username> 지표를 서버에 올려 카드 자동 갱신
+  promptkarma --help            이 도움말
 
 측정하는 것:
   인성 축   AI를 대하는 태도 (욕설 발생률)
@@ -102,20 +142,30 @@ promptkarma — AI CLI 세션에서 당신의 프롬프트를 측정합니다.
 `);
 }
 
-const cmd = process.argv[2] ?? "scan";
-switch (cmd) {
-  case "scan":
-    runScan();
-    break;
-  case "card":
-    runCard();
-    break;
-  case "-h":
-  case "--help":
-  case "help":
-    help();
-    break;
-  default:
-    console.error(`알 수 없는 명령: ${cmd}\n"promptkarma --help"를 보세요.`);
-    process.exit(1);
+async function main(): Promise<void> {
+  const cmd = process.argv[2] ?? "scan";
+  switch (cmd) {
+    case "scan":
+      runScan();
+      break;
+    case "card":
+      runCard();
+      break;
+    case "submit":
+      await runSubmit();
+      break;
+    case "-h":
+    case "--help":
+    case "help":
+      help();
+      break;
+    default:
+      console.error(`알 수 없는 명령: ${cmd}\n"promptkarma --help"를 보세요.`);
+      process.exit(1);
+  }
 }
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
