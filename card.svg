@@ -1,0 +1,50 @@
+<svg width="480" height="600" viewBox="0 0 480 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Youkamii: 유능한 폭군">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6f1"/>
+      <stop offset="1" stop-color="#ffe9e0"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="600" rx="28" fill="url(#bg)"/>
+
+  <text x="40" y="58" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="24" font-weight="800" fill="#f2704e">promptkarma</text>
+  <text x="440" y="58" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="19" fill="#c2a59d" text-anchor="end">@Youkamii</text>
+
+  
+      <rect x="113" y="90" width="104" height="42" rx="21" fill="#ffd9cc"/>
+      <text x="165" y="118" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="20" font-weight="600" fill="#d95f3e" text-anchor="middle">거친 입</text>
+  
+      <rect x="233" y="90" width="134" height="42" rx="21" fill="#ffd9cc"/>
+      <text x="300" y="118" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="20" font-weight="600" fill="#d95f3e" text-anchor="middle">치밀한 지시</text>
+
+  <g transform="translate(90,150) scale(0.7)">
+    <ellipse cx="150" cy="270" rx="96" ry="22" fill="#f2704e" opacity="0.12"/>
+    
+      <path d="M96,74 C80,52 78,30 88,16 C102,34 108,54 112,72 Z" fill="#6b4b45"/>
+      <path d="M204,74 C220,52 222,30 212,16 C198,34 192,54 188,72 Z" fill="#6b4b45"/>
+    <circle cx="150" cy="168" r="96" fill="#ff8b6b"/>
+    
+    <circle cx="106" cy="192" r="18" fill="#ff8b6b" opacity="0.45"/>
+    <circle cx="194" cy="192" r="18" fill="#ff8b6b" opacity="0.45"/>
+      <path d="M116,150 L146,158" stroke="#4a2f2a" stroke-width="9" stroke-linecap="round" fill="none"/>
+      <path d="M154,158 L184,150" stroke="#4a2f2a" stroke-width="9" stroke-linecap="round" fill="none"/>
+      <path d="M120,196 Q150,222 186,198" stroke="#4a2f2a" stroke-width="9" stroke-linecap="round" fill="none"/>
+  </g>
+  <path transform="translate(70,120) scale(1.1)" d="M0,-10 L2.6,-2.6 L10,0 L2.6,2.6 L0,10 L-2.6,2.6 L-10,0 L-2.6,-2.6 Z" fill="#f2704e"/><path transform="translate(232,96) scale(0.8)" d="M0,-10 L2.6,-2.6 L10,0 L2.6,2.6 L0,10 L-2.6,2.6 L-10,0 L-2.6,-2.6 Z" fill="#f2704e"/><path transform="translate(238,176) scale(0.6)" d="M0,-10 L2.6,-2.6 L10,0 L2.6,2.6 L0,10 L-2.6,2.6 L-10,0 L-2.6,-2.6 Z" fill="#f2704e"/>
+
+  <text x="240" y="392" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="52" font-weight="900" fill="#2e1f1d" text-anchor="middle" letter-spacing="-1">유능한 폭군</text>
+  <text x="240" y="426" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="20" fill="#a9756a" text-anchor="middle">험하게 굴지만, 시킬 줄은 안다</text>
+
+  
+      <rect x="40" y="452" width="196" height="112" rx="24" fill="#fffaf7" stroke="#ffd9cc" stroke-width="1.5"/>
+      <text x="138" y="486" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="19" font-weight="600" fill="#a9756a" text-anchor="middle">욕설 발생률</text>
+      <text x="138" y="528" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="46" font-weight="800" fill="#f2704e" text-anchor="middle">7.3%</text>
+      <text x="138" y="552" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="15" fill="#a9756a" text-anchor="middle">약 14번에 한 번</text>
+  
+      <rect x="244" y="452" width="196" height="112" rx="24" fill="#fffaf7" stroke="#ffd9cc" stroke-width="1.5"/>
+      <text x="342" y="486" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="19" font-weight="600" fill="#a9756a" text-anchor="middle">구조화 지수</text>
+      <text x="342" y="528" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="46" font-weight="800" fill="#f2704e" text-anchor="middle">50.4%</text>
+      <text x="342" y="552" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="15" fill="#a9756a" text-anchor="middle">지시의 구조화 정도</text>
+
+  <text x="240" y="588" font-family="'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',system-ui,-apple-system,sans-serif" font-size="15" fill="#c2a59d" text-anchor="middle">3,398 prompts · npx promptkarma</text>
+</svg>
