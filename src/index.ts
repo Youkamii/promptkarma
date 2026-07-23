@@ -67,11 +67,23 @@ function runCard(): void {
   const saved = JSON.parse(readFileSync(statePath, "utf8")) as { metrics: Metrics };
   const username = process.argv[3] ?? "you";
 
-  const svg = renderCard({ username, metrics: saved.metrics });
+  const m = saved.metrics;
+  const svg = renderCard({ username, metrics: m });
   const out = join(stateDir(), "card.svg");
   writeFileSync(out, svg);
+
+  const q = new URLSearchParams({
+    u: username,
+    f: m.profanityRate.toFixed(1),
+    d: m.competence.toFixed(1),
+    p: String(m.prompts),
+  });
+  if (m.promptsPerSwear !== null) q.set("pps", m.promptsPerSwear.toFixed(1));
+  const url = `https://promptkarma.vercel.app/api/card?${q.toString()}`;
+
   console.log(`카드 생성됨: ${out}`);
-  console.log("마크다운 임베드(서버 배포 후): ![](https://<도메인>/api/card/" + username + ")");
+  console.log("\nREADME나 프로필에 붙여넣기:");
+  console.log(`![promptkarma](${url})`);
 }
 
 function help(): void {

@@ -4,7 +4,7 @@
 
 **AI 코딩 CLI 세션에서 당신이 친 프롬프트를 읽어, AI를 대하는 태도와 활용 능력을 매깁니다.**
 
-![promptkarma card](./card.svg)
+![promptkarma card](https://promptkarma.vercel.app/api/card?u=Youkamii&f=7.3&d=50.4&p=3398&pps=13.7)
 
 </div>
 
@@ -40,10 +40,11 @@ npx promptkarma card <github-username>
 
 ## 내 프로필에 배지 넣기
 
-배포 후, GitHub README나 프로필에 아래 한 줄을 붙이면 카드가 뜹니다:
+`npx promptkarma card <username>`을 실행하면 붙여넣을 마크다운 한 줄이 출력됩니다.
+GitHub README나 프로필에 붙이면 카드가 뜹니다:
 
 ```markdown
-![promptkarma](https://<배포-도메인>/api/card?u=<username>&f=<욕설률>&d=<구조화>&p=<프롬프트수>)
+![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>&f=<욕설률>&d=<구조화>&p=<프롬프트수>)
 ```
 
 ## 측정 정의 (v1)
