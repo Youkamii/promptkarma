@@ -168,21 +168,36 @@ function pnorm(v: number[]): number[] { const m = Math.hypot(v[0]!, v[1]!, v[2]!
 function pdist(a: number[], b: number[]): number { return Math.hypot(a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!); }
 function polyEdges(V: number[][], k: number): number[][] {
   if (k === 0) return V.map((_, i) => [i, (i + 1) % V.length]);
+  if (k === 2) { // 구 근사: 각 정점을 가까운 K개와 연결 (표면 삼각망)
+    const K = 5, seen = new Set<string>(), E: number[][] = [];
+    for (let i = 0; i < V.length; i++) {
+      const near = V.map((v, j) => ({ j, d: pdist(V[i]!, v) })).filter((o) => o.j !== i).sort((a, b) => a.d - b.d);
+      for (let n = 0; n < Math.min(K, near.length); n++) {
+        const j = near[n]!.j, key = i < j ? `${i}-${j}` : `${j}-${i}`;
+        if (!seen.has(key)) { seen.add(key); E.push([i, j]); }
+      }
+    }
+    return E;
+  }
   let min = Infinity;
   for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) min = Math.min(min, pdist(V[i]!, V[j]!));
   const E: number[][] = [];
   for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) if (pdist(V[i]!, V[j]!) <= min * 1.12) E.push([i, j]);
   return E;
 }
-function polyProject(v: number[], cx: number, cy: number, s: number) {
-  const ay = 0.62, ax = 0.42;
+// Y축 스핀(회전 애니메이션의 시간축)
+function spinY(v: number[], th: number): number[] {
   const x = v[0]!, y = v[1]!, z = v[2]!;
-  const x1 = x * Math.cos(ay) - z * Math.sin(ay);
-  const z1 = x * Math.sin(ay) + z * Math.cos(ay);
-  const y1 = y * Math.cos(ax) - z1 * Math.sin(ax);
-  const z2 = y * Math.sin(ax) + z1 * Math.cos(ax);
+  return [x * Math.cos(th) - z * Math.sin(th), y, x * Math.sin(th) + z * Math.cos(th)];
+}
+// 고정 기울기 투영 (스핀은 spinY로 분리 적용)
+function tiltProject(v: number[], cx: number, cy: number, s: number) {
+  const ax = 0.42;
+  const x = v[0]!, y = v[1]!, z = v[2]!;
+  const y1 = y * Math.cos(ax) - z * Math.sin(ax);
+  const z2 = y * Math.sin(ax) + z * Math.cos(ax);
   const f = 5 / (5 - z2);
-  return { x: cx + x1 * s * f, y: cy - y1 * s * f, z: z2 };
+  return { x: cx + x * s * f, y: cy - y1 * s * f, z: z2 };
 }
 const POLY_COLORS: Record<string, { line: string; vert: string; coreOn: boolean; core: string }> = {
   black: { line: "#4a4a52", vert: "#8a8a95", coreOn: false, core: "#ffffff" },
@@ -201,19 +216,33 @@ export function renderPolytope(input: CardInput): string {
   const V = POLY_LEVELS[level]!.verts.map(pnorm);
   const E = polyEdges(V, POLY_LEVELS[level]!.k);
   const cx = 210, cy = 156, scale = 100;
-  const P = V.map((v) => polyProject(v, cx, cy, scale));
   const col = POLY_COLORS[karma]!;
 
-  const ez = E.map(([a, b]) => ({ a: a!, b: b!, z: (P[a!]!.z + P[b!]!.z) / 2 })).sort((p, q) => p.z - q.z);
-  const edges = ez.map(({ a, b }) => {
-    const t = (((P[a]!.z + P[b]!.z) / 2) + 1.4) / 2.8;
-    return `<line x1="${P[a]!.x.toFixed(1)}" y1="${P[a]!.y.toFixed(1)}" x2="${P[b]!.x.toFixed(1)}" y2="${P[b]!.y.toFixed(1)}" stroke="${col.line}" stroke-width="${(0.7 + 0.7 * t).toFixed(2)}" stroke-opacity="${(0.28 + 0.6 * t).toFixed(2)}"/>`;
-  }).join("");
-  const verts = P.map((p) => {
-    const t = (p.z + 1.4) / 2.8;
-    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(1.3 + 1.7 * t).toFixed(2)}" fill="${col.vert}" fill-opacity="${(0.4 + 0.6 * t).toFixed(2)}" filter="url(#pvg)"/>`;
-  }).join("");
-  const core = `<g transform="translate(${cx},${cy})" opacity="${col.coreOn ? 0.95 : 0.32}"><path d="M0,-12 L2.2,-2.2 L12,0 L2.2,2.2 L0,12 L-2.2,2.2 L-12,0 L-2.2,-2.2 Z" fill="${col.core}" filter="url(#pcg)"/></g>`;
+  // 회전: Y축 스핀을 프레임별 좌표로 구워 SMIL animate로 재생 (45초 1회전).
+  // 정적 SVG는 3D 회전을 못 하므로 각 선분/정점 좌표를 프레임 시퀀스로 애니메이트한다.
+  const N = 30, DUR = 45, baseAngle = 0.62;
+  const frames = Array.from({ length: N + 1 }, (_, f) => {
+    const th = baseAngle + (2 * Math.PI * f) / N;
+    return V.map((v) => tiltProject(spinY(v, th), cx, cy, scale));
+  });
+  const A = `dur="${DUR}s" repeatCount="indefinite"`;
+  const sx = (i: number) => frames.map((fr) => fr[i]!.x.toFixed(1)).join(";");
+  const sy = (i: number) => frames.map((fr) => fr[i]!.y.toFixed(1)).join(";");
+  const sopV = (i: number) => frames.map((fr) => (0.4 + 0.6 * ((fr[i]!.z + 1.4) / 2.8)).toFixed(2)).join(";");
+  const sopE = (a: number, b: number) => frames.map((fr) => (0.2 + 0.55 * (((fr[a]!.z + fr[b]!.z) / 2 + 1.4) / 2.8)).toFixed(2)).join(";");
+
+  const edges = E.map(([a, b]) => `<line stroke="${col.line}" stroke-width="1.1">
+    <animate attributeName="x1" ${A} values="${sx(a!)}"/><animate attributeName="y1" ${A} values="${sy(a!)}"/>
+    <animate attributeName="x2" ${A} values="${sx(b!)}"/><animate attributeName="y2" ${A} values="${sy(b!)}"/>
+    <animate attributeName="stroke-opacity" ${A} values="${sopE(a!, b!)}"/></line>`).join("");
+  const verts = V.map((_, i) => `<circle r="2.4" fill="${col.vert}" filter="url(#pvg)">
+    <animate attributeName="cx" ${A} values="${sx(i)}"/><animate attributeName="cy" ${A} values="${sy(i)}"/>
+    <animate attributeName="fill-opacity" ${A} values="${sopV(i)}"/></circle>`).join("");
+  // 중앙 코어: 회전 안 함. 하늘색(칭찬>욕)이면 발광 펄스.
+  const corePulse = col.coreOn
+    ? `<animate attributeName="opacity" dur="3.5s" repeatCount="indefinite" values="0.75;1;0.75"/>`
+    : "";
+  const core = `<g transform="translate(${cx},${cy})" opacity="${col.coreOn ? 0.95 : 0.32}"><path d="M0,-12 L2.2,-2.2 L12,0 L2.2,2.2 L0,12 L-2.2,2.2 L-12,0 L-2.2,-2.2 Z" fill="${col.core}" filter="url(#pcg)"/>${corePulse}</g>`;
 
   const plus = (x: number, y: number) => `<path d="M${x - 6},${y} h12 M${x},${y - 6} v12" stroke="#5a5a66" stroke-width="1" opacity="0.45"/>`;
   const corners = [plus(40, 44), plus(W - 40, 44), plus(40, H - 40), plus(W - 40, H - 40)].join("");
