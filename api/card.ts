@@ -62,6 +62,8 @@ export default async function handler(req: any, res: any): Promise<void> {
 
   const svg = renderCard({ username, metrics });
   res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300, stale-while-revalidate=86400");
+  // 짧게 캐시해 submit 반영을 빠르게(엣지 1분). GitHub camo는 별도 캐시라
+  // 프로필 표시 반영은 camo TTL이 지배한다(즉시가 아님).
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=300");
   res.status(200).send(svg);
 }
