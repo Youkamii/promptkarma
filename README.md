@@ -4,7 +4,7 @@
 
 **AI 코딩 CLI 세션에서 당신이 친 프롬프트를 읽어, AI를 대하는 태도와 활용 능력을 매깁니다.**
 
-![promptkarma card](https://promptkarma.vercel.app/api/card?u=Youkamii&f=7.3&d=50.4&p=3398&pps=13.7)
+![promptkarma card](https://promptkarma.vercel.app/api/card?u=Youkamii)
 
 </div>
 
