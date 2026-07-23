@@ -4,10 +4,15 @@
  * 지표 우선순위: DB(submit한 값) → 쿼리 f/d/p 폴백 → 측정 중.
  * 외형: theme 프리셋 + 색 개별 오버라이드(bg_color, text_color, karma_color, ...).
  */
-import { renderCard } from "../src/card.js";
+import { renderCard, renderPolytope } from "../src/card.js";
 import type { Theme } from "../src/card.js";
-import type { Metrics } from "../src/metrics.js";
+import type { Metrics, KarmaMode } from "../src/metrics.js";
 import { getCard } from "../src/db.js";
+
+function asKarma(v: unknown): KarmaMode {
+  const s = String(v);
+  return s === "cyan" || s === "black" ? s : "white";
+}
 
 function num(v: unknown): number {
   const n = Number(Array.isArray(v) ? v[0] : v);
@@ -37,7 +42,8 @@ export default async function handler(req: any, res: any): Promise<void> {
       metrics = {
         prompts: row.prompts, slash: 0,
         profanityRate: row.profanity, competence: row.competence,
-        promptsPerSwear: row.promptsPerSwear, eligible: row.prompts >= 30,
+        promptsPerSwear: row.promptsPerSwear, praiseRate: row.praise ?? 0,
+        karma: asKarma(row.karma), eligible: row.prompts >= 30,
       };
     }
   } catch { /* DB 장애 → 폴백 */ }
@@ -48,11 +54,12 @@ export default async function handler(req: any, res: any): Promise<void> {
     metrics = {
       prompts, slash: 0,
       profanityRate: clamp(num(q.f), 0, 100), competence: clamp(num(q.d), 0, 100),
-      promptsPerSwear: pps > 0 ? pps : null, eligible: prompts >= 30,
+      promptsPerSwear: pps > 0 ? pps : null, praiseRate: clamp(num(q.praise), 0, 100),
+      karma: asKarma(q.karma), eligible: prompts >= 30,
     };
   }
   if (!metrics) {
-    metrics = { prompts: 0, slash: 0, profanityRate: 0, competence: 0, promptsPerSwear: null, eligible: false };
+    metrics = { prompts: 0, slash: 0, profanityRate: 0, competence: 0, promptsPerSwear: null, praiseRate: 0, karma: "white", eligible: false };
   }
 
   // 색 개별 오버라이드 (github-readme-stats 호환 파라미터명 + 우리 것)
@@ -67,7 +74,10 @@ export default async function handler(req: any, res: any): Promise<void> {
   const mu = color(q.muted_color); if (mu) overrides.muted = mu;
   const bo = color(q.border_color); if (bo) overrides.border = bo;
 
-  const svg = renderCard({ username, metrics, theme: first(q.theme), colors: overrides });
+  const style = first(q.style);
+  const svg = style === "polytope"
+    ? renderPolytope({ username, metrics })
+    : renderCard({ username, metrics, theme: first(q.theme), colors: overrides });
   res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=300");
   res.status(200).send(svg);

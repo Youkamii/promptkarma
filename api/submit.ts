@@ -27,6 +27,7 @@ export default async function handler(req: any, res: any): Promise<void> {
   const pps = num(b.pps);
 
   try {
+    const karma = b.karma === "cyan" || b.karma === "black" ? b.karma : "white";
     await ensureSchema();
     await upsertCard({
       username,
@@ -34,6 +35,8 @@ export default async function handler(req: any, res: any): Promise<void> {
       competence: clamp(num(b.d), 0, 100),
       prompts,
       promptsPerSwear: pps > 0 ? pps : null,
+      praise: clamp(num(b.praise), 0, 100),
+      karma,
     });
     res.status(200).json({ ok: true, username });
   } catch (e: any) {

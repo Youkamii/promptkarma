@@ -110,6 +110,8 @@ async function runSubmit(): Promise<void> {
       d: m.competence,
       p: m.prompts,
       pps: m.promptsPerSwear ?? 0,
+      praise: m.praiseRate,
+      karma: m.karma,
     }),
   });
   const body = (await res.json().catch(() => ({}))) as { error?: string };

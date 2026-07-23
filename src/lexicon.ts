@@ -47,3 +47,16 @@ export function countProfanity(text: string): number {
 export function hasProfanity(text: string): boolean {
   return countProfanity(text) > 0;
 }
+
+/** 칭찬 어근. karma의 하늘색(칭찬>욕) 판정용. */
+const PRAISE = [
+  "고마", "고맙", "감사", "잘했", "좋아", "굿", "완벽", "수고", "최고",
+  "멋지", "멋진", "훌륭", "역시", "짱",
+  "thank", "nice", "great", "perfect", "awesome", "good job", "well done",
+];
+const PRAISE_RE = new RegExp(PRAISE.map(escapeRegex).join("|"), "gi");
+
+/** 칭찬이 한 번이라도 있으면 true. */
+export function hasPraise(text: string): boolean {
+  return PRAISE_RE.test(text);
+}

@@ -131,3 +131,119 @@ export function renderCard(input: CardInput): string {
   <text x="${trackX}" y="184" font-family="${FONT}" font-size="12.5" fill="${C.muted}">${m.prompts.toLocaleString("en-US")} prompts · npx promptkarma</text>
 </svg>`;
 }
+
+// ============================================================================
+// PROMPT POLYTOPE — 다면체 와이어프레임. 복잡도=intelligence, 오라색=karma.
+// ============================================================================
+const PHI = (1 + Math.sqrt(5)) / 2;
+const MONO = "'Courier New','SFMono-Regular',Consolas,monospace";
+
+function circlePts(n: number): number[][] {
+  return Array.from({ length: n }, (_, i) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
+    return [Math.cos(a), Math.sin(a), 0];
+  });
+}
+const POLY_LEVELS: { verts: number[][]; k: number }[] = [
+  { verts: circlePts(3), k: 0 },
+  { verts: circlePts(4), k: 0 },
+  { verts: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]], k: 1 },
+  { verts: [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]], k: 1 },
+  { verts: [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]], k: 1 },
+  { verts: [[0,1,PHI],[0,1,-PHI],[0,-1,PHI],[0,-1,-PHI],[1,PHI,0],[1,-PHI,0],[-1,PHI,0],[-1,-PHI,0],[PHI,0,1],[PHI,0,-1],[-PHI,0,1],[-PHI,0,-1]], k: 1 },
+  { verts: fibSphere(24), k: 2 },
+  { verts: fibSphere(42), k: 2 },
+];
+function fibSphere(n: number): number[][] {
+  const pts: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (2 * i) / (n - 1);
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const t = Math.PI * (3 - Math.sqrt(5)) * i;
+    pts.push([Math.cos(t) * r, y, Math.sin(t) * r]);
+  }
+  return pts;
+}
+function pnorm(v: number[]): number[] { const m = Math.hypot(v[0]!, v[1]!, v[2]!) || 1; return [v[0]! / m, v[1]! / m, v[2]! / m]; }
+function pdist(a: number[], b: number[]): number { return Math.hypot(a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!); }
+function polyEdges(V: number[][], k: number): number[][] {
+  if (k === 0) return V.map((_, i) => [i, (i + 1) % V.length]);
+  let min = Infinity;
+  for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) min = Math.min(min, pdist(V[i]!, V[j]!));
+  const E: number[][] = [];
+  for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) if (pdist(V[i]!, V[j]!) <= min * 1.12) E.push([i, j]);
+  return E;
+}
+function polyProject(v: number[], cx: number, cy: number, s: number) {
+  const ay = 0.62, ax = 0.42;
+  const x = v[0]!, y = v[1]!, z = v[2]!;
+  const x1 = x * Math.cos(ay) - z * Math.sin(ay);
+  const z1 = x * Math.sin(ay) + z * Math.cos(ay);
+  const y1 = y * Math.cos(ax) - z1 * Math.sin(ax);
+  const z2 = y * Math.sin(ax) + z1 * Math.cos(ax);
+  const f = 5 / (5 - z2);
+  return { x: cx + x1 * s * f, y: cy - y1 * s * f, z: z2 };
+}
+const POLY_COLORS: Record<string, { line: string; vert: string; coreOn: boolean; core: string }> = {
+  black: { line: "#4a4a52", vert: "#8a8a95", coreOn: false, core: "#ffffff" },
+  white: { line: "#d8d8e0", vert: "#ffffff", coreOn: false, core: "#ffffff" },
+  cyan: { line: "#cdeeff", vert: "#ffffff", coreOn: true, core: "#bfeeff" },
+};
+
+export function renderPolytope(input: CardInput): string {
+  const { username, metrics: m } = input;
+  const W = 700, H = 300;
+  const intel = Math.round(m.competence);
+  const karma = m.karma ?? "white";
+  const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate * 5)));
+
+  const level = Math.max(0, Math.min(7, Math.round((intel / 100) * 7)));
+  const V = POLY_LEVELS[level]!.verts.map(pnorm);
+  const E = polyEdges(V, POLY_LEVELS[level]!.k);
+  const cx = 210, cy = 156, scale = 100;
+  const P = V.map((v) => polyProject(v, cx, cy, scale));
+  const col = POLY_COLORS[karma]!;
+
+  const ez = E.map(([a, b]) => ({ a: a!, b: b!, z: (P[a!]!.z + P[b!]!.z) / 2 })).sort((p, q) => p.z - q.z);
+  const edges = ez.map(({ a, b }) => {
+    const t = (((P[a]!.z + P[b]!.z) / 2) + 1.4) / 2.8;
+    return `<line x1="${P[a]!.x.toFixed(1)}" y1="${P[a]!.y.toFixed(1)}" x2="${P[b]!.x.toFixed(1)}" y2="${P[b]!.y.toFixed(1)}" stroke="${col.line}" stroke-width="${(0.7 + 0.7 * t).toFixed(2)}" stroke-opacity="${(0.28 + 0.6 * t).toFixed(2)}"/>`;
+  }).join("");
+  const verts = P.map((p) => {
+    const t = (p.z + 1.4) / 2.8;
+    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(1.3 + 1.7 * t).toFixed(2)}" fill="${col.vert}" fill-opacity="${(0.4 + 0.6 * t).toFixed(2)}" filter="url(#pvg)"/>`;
+  }).join("");
+  const core = `<g transform="translate(${cx},${cy})" opacity="${col.coreOn ? 0.95 : 0.32}"><path d="M0,-12 L2.2,-2.2 L12,0 L2.2,2.2 L0,12 L-2.2,2.2 L-12,0 L-2.2,-2.2 Z" fill="${col.core}" filter="url(#pcg)"/></g>`;
+
+  const plus = (x: number, y: number) => `<path d="M${x - 6},${y} h12 M${x},${y - 6} v12" stroke="#5a5a66" stroke-width="1" opacity="0.45"/>`;
+  const corners = [plus(40, 44), plus(W - 40, 44), plus(40, H - 40), plus(W - 40, H - 40)].join("");
+
+  const iWord = intel >= 66 ? "STRUCTURED" : intel >= 33 ? "DELIBERATE" : "SCATTERED";
+  const kWord = karma === "cyan" ? "AFFIRMING" : karma === "black" ? "CAUSTIC" : "TEMPERATE";
+  // 데이터 패널: 라벨(왼) · 큰 숫자 · 단어(오른). 겹치지 않게 폭·간격 확보.
+  const panel = (y: number, label: string, val: string, word: string) => {
+    const x = 422, w = 262, h = 58;
+    const br = (px: number, py: number, dx: number, dy: number) => `<path d="M${px + dx},${py} h${-dx} v${dy}" stroke="#6a6a78" stroke-width="1.3" fill="none" opacity="0.7"/>`;
+    return `${br(x, y, 13, 13)}${br(x + w, y, -13, 13)}${br(x, y + h, 13, -13)}${br(x + w, y + h, -13, -13)}
+      <text x="${x + 20}" y="${y + 35}" font-family="${MONO}" font-size="12.5" letter-spacing="1.5" fill="#9a9aa8">${label}</text>
+      <text x="${x + 150}" y="${y + 39}" font-family="${MONO}" font-size="24" font-weight="700" fill="#ffffff" text-anchor="middle">${val}</text>
+      <text x="${x + w - 16}" y="${y + 35}" font-family="${MONO}" font-size="11" letter-spacing="1" fill="#8a8a98" text-anchor="end">${word}</text>`;
+  };
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt polytope">
+  <defs>
+    <radialGradient id="pbg" cx="40%" cy="45%" r="78%"><stop offset="0" stop-color="#141419"/><stop offset="1" stop-color="#08080b"/></radialGradient>
+    <filter id="pvg" x="-300%" y="-300%" width="700%" height="700%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    <filter id="pcg" x="-300%" y="-300%" width="700%" height="700%"><feGaussianBlur stdDeviation="2.4"/></filter>
+    <pattern id="pgrid" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M26 0 H0 V26" fill="none" stroke="#ffffff" stroke-opacity="0.03"/></pattern>
+  </defs>
+  <rect width="${W}" height="${H}" rx="14" fill="url(#pbg)"/>
+  <rect width="${W}" height="${H}" rx="14" fill="url(#pgrid)"/>
+  <rect x="0.6" y="0.6" width="${W - 1.2}" height="${H - 1.2}" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+  ${corners}
+  <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(username.toUpperCase())} / PROMPT POLYTOPE</text>
+  ${edges}${core}${verts}
+  ${panel(116, "INTELLECT", String(intel).padStart(2, "0"), iWord)}
+  ${panel(190, "KARMA", String(angel).padStart(2, "0"), kWord)}
+</svg>`;
+}
