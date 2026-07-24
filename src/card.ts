@@ -187,25 +187,26 @@ export function cell600(): number[][] {
   return V;
 }
 
-const POLY_LEVELS: { verts: number[][]; k: number; dim?: number }[] = [
+// 정점 성분 수가 곧 차원이다(3D는 3개, 4D는 4개) — 별도 dim 필드를 두면 데이터와 어긋날 수 있다.
+const POLY_LEVELS: { verts: number[][]; k: number }[] = [
   { verts: circlePts(3), k: 0 },
   { verts: circlePts(4), k: 0 },
   { verts: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]], k: 1 },
   { verts: [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]], k: 1 },
   { verts: [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]], k: 1 },
   { verts: [[0,1,PHI],[0,1,-PHI],[0,-1,PHI],[0,-1,-PHI],[1,PHI,0],[1,-PHI,0],[-1,PHI,0],[-1,-PHI,0],[PHI,0,1],[PHI,0,-1],[-PHI,0,1],[-PHI,0,-1]], k: 1 },
-  { verts: cell24(), k: 1, dim: 4 },   // L6: 24-cell
-  { verts: cell600(), k: 1, dim: 4 },  // L7: 600-cell
+  { verts: cell24(), k: 1 },   // L6: 24-cell (4D)
+  { verts: cell600(), k: 1 },  // L7: 600-cell (4D)
 ];
-function pnorm(v: number[]): number[] { const m = Math.hypot(v[0]!, v[1]!, v[2]!) || 1; return [v[0]! / m, v[1]! / m, v[2]! / m]; }
-export function pnorm4(v: number[]): number[] { const m = Math.hypot(v[0]!, v[1]!, v[2]!, v[3]!) || 1; return [v[0]! / m, v[1]! / m, v[2]! / m, v[3]! / m]; }
+// 차원 무관 정규화·거리. 3D와 4D 정점에 같은 코드가 쓰인다.
+export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
 // 최소거리 모서리: 정다면체·정다포체는 모두 "가장 짧은 정점쌍"이 모서리다(2D 폴리곤만 k=0으로 순환).
-export function polyEdges(V: number[][], k: number): number[][] {
-  if (k === 0) return V.map((_, i) => [i, (i + 1) % V.length]);
+export function polyEdges(V: number[][], k: number): [number, number][] {
+  if (k === 0) return V.map((_, i): [number, number] => [i, (i + 1) % V.length]);
   let min = Infinity;
   for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) min = Math.min(min, pdistN(V[i]!, V[j]!));
-  const E: number[][] = [];
+  const E: [number, number][] = [];
   for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) if (pdistN(V[i]!, V[j]!) <= min * 1.12) E.push([i, j]);
   return E;
 }
@@ -250,8 +251,8 @@ export function renderPolytope(input: CardInput): string {
 
   const level = Math.max(0, Math.min(7, Math.round((intel / 100) * 7)));
   const lvl = POLY_LEVELS[level]!;
-  const dim = lvl.dim ?? 3;
-  const V = dim === 4 ? lvl.verts.map(pnorm4) : lvl.verts.map(pnorm);
+  const is4 = lvl.verts[0]!.length === 4;
+  const V = lvl.verts.map(pnormN);
   const E = polyEdges(V, lvl.k);
   const heavy = V.length > 60;          // 600-cell(720모서리): 선분 개별 애니메이트하면 ~900KB → 단일 path 모프
   const cx = 210, cy = 156, scale = 100;
@@ -260,13 +261,15 @@ export function renderPolytope(input: CardInput): string {
   const col = POLY_COLORS[karma]!;
 
   // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 3D/4D 회전을 못 한다).
-  // 3D: Y축 스핀. 4D: XW·YZ 등각회전 → w 원근투영 → 기존 기울기 투영.
-  const N = heavy ? 16 : 30, DUR = 45, baseAngle = 0.62;
-  const project = (v: number[], th: number) =>
-    dim === 4 ? tiltProject(proj4to3(rot4(v, th), D4), cx, cy, scale) : tiltProject(spinY(v, th), cx, cy, scale);
+  // 3D는 Y축 스핀이라 한 바퀴가 2π다. 4D 등각회전은 π/2에서 다포체가 자기 자신으로 되돌아온다
+  // (정점끼리 자리를 바꿀 뿐 그림은 픽셀 동일) — 2π를 다 구우면 같은 모션이 4번 반복되고
+  // 프레임의 3/4이 중복이다. 그래서 4D는 π/2만 굽는다: 같은 각도 간격에 프레임 수는 1/4.
+  const rotate = is4 ? (v: number[], th: number) => proj4to3(rot4(v, th), D4) : spinY;
+  const SWEEP = is4 ? Math.PI / 2 : 2 * Math.PI;
+  const N = is4 ? 8 : 30, DUR = 45, baseAngle = 0.62;
   const frames = Array.from({ length: N + 1 }, (_, f) => {
-    const th = baseAngle + (2 * Math.PI * f) / N;
-    return V.map((v) => project(v, th));
+    const th = baseAngle + (SWEEP * f) / N;
+    return V.map((v) => tiltProject(rotate(v, th), cx, cy, scale));
   });
   const A = `dur="${DUR}s" repeatCount="indefinite"`;
 
@@ -274,8 +277,9 @@ export function renderPolytope(input: CardInput): string {
   if (heavy) {
     // 720모서리 전체를 하나의 <path>로 그리고 d를 프레임마다 모프(경계값 1개만 애니메이트).
     const dOf = (fr: { x: number; y: number }[]) =>
-      E.map(([a, b]) => `M${fr[a!]!.x.toFixed(0)} ${fr[a!]!.y.toFixed(0)}L${fr[b!]!.x.toFixed(0)} ${fr[b!]!.y.toFixed(0)}`).join("");
-    edges = `<path fill="none" stroke="${col.line}" stroke-width="1" stroke-opacity="0.55"><animate attributeName="d" ${A} values="${frames.map(dOf).join(";")}"/></path>`;
+      E.map(([a, b]) => `M${fr[a]!.x.toFixed(0)} ${fr[a]!.y.toFixed(0)}L${fr[b]!.x.toFixed(0)} ${fr[b]!.y.toFixed(0)}`).join("");
+    // d 기본값을 박아둔다: SMIL 미지원 렌더러(resvg·일부 마크다운 프리뷰)에서 이 path만 통째로 사라진다.
+    edges = `<path fill="none" stroke="${col.line}" stroke-width="1" stroke-opacity="0.55" d="${dOf(frames[0]!)}"><animate attributeName="d" ${A} values="${frames.map(dOf).join(";")}"/></path>`;
     verts = "";                          // 조밀 메시라 정점 점은 생략(구처럼 꽉 참)
   } else {
     const sx = (i: number) => frames.map((fr) => fr[i]!.x.toFixed(1)).join(";");
@@ -283,9 +287,9 @@ export function renderPolytope(input: CardInput): string {
     const sopV = (i: number) => frames.map((fr) => (0.4 + 0.6 * ((fr[i]!.z + 1.4) / 2.8)).toFixed(2)).join(";");
     const sopE = (a: number, b: number) => frames.map((fr) => (0.2 + 0.55 * (((fr[a]!.z + fr[b]!.z) / 2 + 1.4) / 2.8)).toFixed(2)).join(";");
     edges = E.map(([a, b]) => `<line stroke="${col.line}" stroke-width="1.1">
-    <animate attributeName="x1" ${A} values="${sx(a!)}"/><animate attributeName="y1" ${A} values="${sy(a!)}"/>
-    <animate attributeName="x2" ${A} values="${sx(b!)}"/><animate attributeName="y2" ${A} values="${sy(b!)}"/>
-    <animate attributeName="stroke-opacity" ${A} values="${sopE(a!, b!)}"/></line>`).join("");
+    <animate attributeName="x1" ${A} values="${sx(a)}"/><animate attributeName="y1" ${A} values="${sy(a)}"/>
+    <animate attributeName="x2" ${A} values="${sx(b)}"/><animate attributeName="y2" ${A} values="${sy(b)}"/>
+    <animate attributeName="stroke-opacity" ${A} values="${sopE(a, b)}"/></line>`).join("");
     verts = V.map((_, i) => `<circle r="2.4" fill="${col.vert}" filter="url(#pvg)">
     <animate attributeName="cx" ${A} values="${sx(i)}"/><animate attributeName="cy" ${A} values="${sy(i)}"/>
     <animate attributeName="fill-opacity" ${A} values="${sopV(i)}"/></circle>`).join("");

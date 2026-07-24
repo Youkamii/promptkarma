@@ -13,7 +13,8 @@
     "dev": "bun run src/index.ts",
     "scan": "bun run src/index.ts scan",
     "build": "bun build src/index.ts --target=node --outdir=dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun run src/polytope.test.ts"
   },
   "license": "MIT",
   "devDependencies": {
