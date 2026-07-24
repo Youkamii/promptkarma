@@ -24,13 +24,17 @@ let checks = 0;
 const ok = (label: string, fn: () => void) => { fn(); checks++; console.log(`  ok  ${label}`); };
 
 /** 4D 볼록 정다포체 6종 — 슐레플리 기호, 정점·모서리 수, 꼭짓점 차수. */
+const HALF = Math.PI / 2, FULL = 2 * Math.PI;
 const SOLIDS = [
-  { name: "5-cell   {3,3,3}", gen: cell5,   v: 5,   e: 10,   deg: 4,  c: 0 },
-  { name: "16-cell  {3,3,4}", gen: cell16,  v: 8,   e: 24,   deg: 6,  c: 20 },
-  { name: "8-cell   {4,3,3}", gen: cell8,   v: 16,  e: 32,   deg: 4,  c: 40 },
-  { name: "24-cell  {3,4,3}", gen: cell24,  v: 24,  e: 96,   deg: 8,  c: 60 },
-  { name: "600-cell {3,3,5}", gen: cell600, v: 120, e: 720,  deg: 12, c: 80 },
-  { name: "120-cell {5,3,3}", gen: cell120, v: 600, e: 1200, deg: 4,  c: 100 },
+  // per = 등각회전이 도형을 자기 자신으로 되돌리는 각. 5-cell만 2π다 —
+  // rot4(v,π/2)는 부호 붙은 짝치환 (0 3)(1 2)이라 "순열×부호 전체" 궤도로 만든 5종은 보존되지만,
+  // 단체(simplex)인 5-cell의 회전대칭군 A5에는 위수 4 원소가 없어 π/2로 돌아오지 않는다.
+  { name: "5-cell   {3,3,3}", gen: cell5,   v: 5,   e: 10,   deg: 4,  c: 0,   per: FULL },
+  { name: "16-cell  {3,3,4}", gen: cell16,  v: 8,   e: 24,   deg: 6,  c: 20,  per: HALF },
+  { name: "8-cell   {4,3,3}", gen: cell8,   v: 16,  e: 32,   deg: 4,  c: 40,  per: HALF },
+  { name: "24-cell  {3,4,3}", gen: cell24,  v: 24,  e: 96,   deg: 8,  c: 60,  per: HALF },
+  { name: "600-cell {3,3,5}", gen: cell600, v: 120, e: 720,  deg: 12, c: 80,  per: HALF },
+  { name: "120-cell {5,3,3}", gen: cell120, v: 600, e: 1200, deg: 4,  c: 100, per: HALF },
 ];
 
 // ---------------------------------------------------------------- 1. 정규성
@@ -58,12 +62,17 @@ ok("600-cell 모서리 길이 = 1/φ (황금비)", () => {
   const [a, b] = polyEdges(V)[0]!;
   assert.ok(Math.abs(pdistN(V[a]!, V[b]!) - 2 / (1 + Math.sqrt(5))) < EPS);
 });
-ok("등각회전 주기가 도형을 정말 되돌린다", () => {
-  for (const { name, gen } of SOLIDS) {
-    const V = gen().map(pnormN);
-    const p = rotPeriod(V);
-    assert.ok([Math.PI / 2, Math.PI, 2 * Math.PI].includes(p), `${name}: 주기 ${p}`);
-  }
+ok("회전 주기가 도형별 기댓값과 정확히 일치한다", () => {
+  // rotPeriod는 구조상 π/2·π·2π 중 하나만 반환하므로 "셋 중 하나인가"는 항진명제다.
+  // 값 자체를 못박아야 기하가 바뀌었을 때 잡힌다(주기가 길어지면 프레임 중복, 짧아지면 루프에서 튄다).
+  for (const { name, gen, per } of SOLIDS)
+    assert.equal(rotPeriod(gen().map(pnormN)), per, `${name}: 회전 주기`);
+});
+ok("rotPeriod가 π 주기 도형도 짚어낸다", () => {
+  // 5-cell ∪ (−5-cell)은 중심대칭이라 π에서 되돌아오지만, 5-cell이 π/2로 안 돌아오므로 π/2도 아니다.
+  // rotPeriod의 π 분기가 실제로 동작하는지 확인한다(정다포체 6종만으로는 이 분기가 안 밟힌다).
+  const V = cell5().map(pnormN);
+  assert.equal(rotPeriod([...V, ...V.map((v) => v.map((x) => -x))]), Math.PI);
 });
 
 // -------------------------------------------------------- 2. 렌더된 레벨별
@@ -142,14 +151,34 @@ for (const [i, { name, c }] of SOLIDS.entries()) {
     assert.ok(Math.min(...ys) > 4 && Math.max(...ys) < 296, `${name}: y ${Math.min(...ys)}~${Math.max(...ys)}`);
   });
 }
-ok("어느 티어도 220KB를 넘지 않는다 (README 배지로 쓸 수 있어야 한다)", () => {
+ok("어느 티어도 160KB를 넘지 않는다 (README 배지로 쓸 수 있어야 한다)", () => {
   for (const { name, c } of SOLIDS) {
     const kb = Buffer.byteLength(render(c), "utf8") / 1024;
-    assert.ok(kb < 220, `${name} 카드가 ${kb.toFixed(1)}KB`);
+    assert.ok(kb < 160, `${name} 카드가 ${kb.toFixed(1)}KB`);
   }
 });
-ok("조밀한 티어에 정적 d 폴백이 있다 (SMIL 미지원 렌더러 대비)", () => {
-  for (const c of [80, 100]) assert.match(render(c), /<path[^>]*\sd="M[^"]+"/);
+ok("모든 티어가 SMIL 없이도 그려진다 (정적 좌표 폴백)", () => {
+  // 애니메이트되는 좌표에 기본값이 없으면 SMIL 미지원 렌더러에서 0으로 접혀 도형이 사라진다.
+  for (const { name, c, v } of SOLIDS) {
+    const svg = render(c);
+    if (v > 60) {
+      assert.match(svg, /<path[^>]*\sd="M[^"]+"/, `${name}: path에 기본 d가 없다`);
+    } else {
+      assert.match(svg, /<line[^>]*\sx1="[-\d.]+"[^>]*\sy1="[-\d.]+"[^>]*\sx2="[-\d.]+"[^>]*\sy2="[-\d.]+"/, `${name}: line에 기본 좌표가 없다`);
+      assert.match(svg, /<circle[^>]*\scx="[-\d.]+"[^>]*\scy="[-\d.]+"/, `${name}: circle에 기본 좌표가 없다`);
+    }
+  }
+});
+ok("키프레임 각도 간격이 티어마다 균일하다", () => {
+  // SMIL은 키프레임 사이를 화면좌표로 선형 보간한다. 간격이 벌어지면 구간 중앙에서 반경이
+  // 수축해 도형이 펄떡인다(현-호 오차). sweep이 4배인 5-cell은 프레임도 4배여야 한다.
+  for (const { name, c, e } of SOLIDS) {
+    const per = SOLIDS.find((s) => s.c === c)!.per;
+    const N = frameSets(render(c)).length - 1;
+    const stepDeg = (per / N) * (180 / Math.PI);
+    const limit = e > 900 ? 23 : 12;      // 조밀한 티어만 성기게 허용
+    assert.ok(stepDeg <= limit, `${name}: 키프레임 간격 ${stepDeg.toFixed(1)}° (상한 ${limit}°)`);
+  }
 });
 
 console.log(`\n${checks}개 검사 통과\n`);

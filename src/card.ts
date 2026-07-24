@@ -219,8 +219,12 @@ export function cell120(): number[][] {
   ];
 }
 
-/** 점수 낮음 → 단순, 높음 → 복잡. 4D 정다포체 6종이 그대로 6단계다. */
-const POLY_LEVELS: number[][][] = [cell5(), cell16(), cell8(), cell24(), cell600(), cell120()];
+/**
+ * 점수 낮음 → 단순, 높음 → 복잡. 4D 정다포체 6종이 그대로 6단계다.
+ * 생성자를 담는다 — 이 모듈은 게이지 카드(renderCard)와 CLI도 import하므로,
+ * 미리 굽지 않아야 다포체를 안 쓰는 경로가 120-cell 생성 비용을 물지 않는다.
+ */
+const POLY_LEVELS: (() => number[][])[] = [cell5, cell16, cell8, cell24, cell600, cell120];
 
 export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
@@ -248,7 +252,7 @@ const GEOM = new Map<number, { V: number[][]; E: [number, number][]; sweep: numb
 function geometry(level: number) {
   let g = GEOM.get(level);
   if (!g) {
-    const V = POLY_LEVELS[level]!.map(pnormN);
+    const V = POLY_LEVELS[level]!().map(pnormN);
     g = { V, E: polyEdges(V), sweep: rotPeriod(V) };
     GEOM.set(level, g);
   }
@@ -266,7 +270,7 @@ function proj4to3(v: number[], D: number): number[] {
   const g = D / (D - v[3]!);
   return [v[0]! * g, v[1]! * g, v[2]! * g];
 }
-// 고정 기울기 투영 (스핀은 spinY로 분리 적용)
+// 3D→2D 고정 기울기 원근투영. 회전은 rot4가 이미 걸어 놓은 상태로 들어온다.
 function tiltProject(v: number[], cx: number, cy: number, s: number) {
   const ax = 0.42;
   const x = v[0]!, y = v[1]!, z = v[2]!;
@@ -284,7 +288,9 @@ const POLY_COLORS: Record<string, { line: string; vert: string; coreOn: boolean;
 export function renderPolytope(input: CardInput): string {
   const { username, metrics: m } = input;
   const W = 700, H = 300;
-  const intel = Math.round(m.competence);
+  // renderCard와 같은 방어. 다포체가 이제 기본 카드라 입력이 어긋나도 레벨 인덱스를 벗어나면 안 된다
+  // (NaN이면 Math.round도 NaN이고, clamp 두 겹으로도 NaN은 안 걸러진다 → POLY_LEVELS[NaN]).
+  const intel = clamp(Math.round(m.competence) || 0, 0, 100);
   const karma = m.karma ?? "white";
   const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate * 5)));
 
@@ -298,33 +304,40 @@ export function renderPolytope(input: CardInput): string {
 
   // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 4D 회전을 못 한다).
   // XW·YZ 등각회전 → w 원근투영 → 기울기 투영. sweep은 도형이 자기 자신으로 되돌아오는 각(rotPeriod).
-  const N = E.length > 900 ? 6 : 8, DUR = 45, baseAngle = 0.62;
+  //
+  // 프레임 수는 sweep에 비례해야 한다. SMIL은 키프레임 사이를 '화면좌표' 선형 보간하므로
+  // 키프레임 간격이 벌어질수록 구간 중앙에서 반경이 수축한다(현-호 오차 = 1-cos(간격/2)).
+  // 간격을 도형마다 같게 잡아야 왜곡이 균일하다 — sweep이 2π인 5-cell만 N을 4배로 준다.
+  const STEP = E.length > 900 ? Math.PI / 8 : Math.PI / 16;  // 22.5° / 11.25° (조밀한 티어만 성기게)
+  const N = Math.max(4, Math.round(sweep / STEP)), DUR = 45, baseAngle = 0.62;
   const frames = Array.from({ length: N + 1 }, (_, f) => {
     const th = baseAngle + (sweep * f) / N;
     return V.map((v) => tiltProject(proj4to3(rot4(v, th), D4), cx, cy, scale));
   });
   const A = `dur="${DUR}s" repeatCount="indefinite"`;
+  // 애니메이트되는 속성은 전부 정적 기본값을 함께 박는다. SMIL 미지원 렌더러(resvg·일부
+  // 마크다운 프리뷰·OG 이미지 생성기)에서 기본값이 없으면 좌표가 0으로 접혀 도형이 사라진다.
+  const f0 = frames[0]!;
 
   let edges: string, verts: string;
   if (heavy) {
-    // 720모서리 전체를 하나의 <path>로 그리고 d를 프레임마다 모프(경계값 1개만 애니메이트).
+    // 모서리 전체를 하나의 <path>로 그리고 d를 프레임마다 모프(애니메이트 태그 1개로 끝낸다).
     const dOf = (fr: { x: number; y: number }[]) =>
       E.map(([a, b]) => `M${fr[a]!.x.toFixed(0)} ${fr[a]!.y.toFixed(0)}L${fr[b]!.x.toFixed(0)} ${fr[b]!.y.toFixed(0)}`).join("");
-    // d 기본값을 박아둔다: SMIL 미지원 렌더러(resvg·일부 마크다운 프리뷰)에서 이 path만 통째로 사라진다.
-    edges = `<path fill="none" stroke="${col.line}" stroke-width="1" stroke-opacity="0.55" d="${dOf(frames[0]!)}"><animate attributeName="d" ${A} values="${frames.map(dOf).join(";")}"/></path>`;
-    verts = "";                          // 조밀 메시라 정점 점은 생략(구처럼 꽉 참)
+    edges = `<path fill="none" stroke="${col.line}" stroke-width="1" stroke-opacity="0.55" d="${dOf(f0)}"><animate attributeName="d" ${A} values="${frames.map(dOf).join(";")}"/></path>`;
+    verts = "";                          // 조밀 메시라 정점 점은 생략(찍으면 뭉갠다)
   } else {
-    const sx = (i: number) => frames.map((fr) => fr[i]!.x.toFixed(1)).join(";");
-    const sy = (i: number) => frames.map((fr) => fr[i]!.y.toFixed(1)).join(";");
-    const sopV = (i: number) => frames.map((fr) => (0.4 + 0.6 * ((fr[i]!.z + 1.4) / 2.8)).toFixed(2)).join(";");
-    const sopE = (a: number, b: number) => frames.map((fr) => (0.2 + 0.55 * (((fr[a]!.z + fr[b]!.z) / 2 + 1.4) / 2.8)).toFixed(2)).join(";");
-    edges = E.map(([a, b]) => `<line stroke="${col.line}" stroke-width="1.1">
-    <animate attributeName="x1" ${A} values="${sx(a)}"/><animate attributeName="y1" ${A} values="${sy(a)}"/>
-    <animate attributeName="x2" ${A} values="${sx(b)}"/><animate attributeName="y2" ${A} values="${sy(b)}"/>
-    <animate attributeName="stroke-opacity" ${A} values="${sopE(a, b)}"/></line>`).join("");
-    verts = V.map((_, i) => `<circle r="2.4" fill="${col.vert}" filter="url(#pvg)">
-    <animate attributeName="cx" ${A} values="${sx(i)}"/><animate attributeName="cy" ${A} values="${sy(i)}"/>
-    <animate attributeName="fill-opacity" ${A} values="${sopV(i)}"/></circle>`).join("");
+    const px = (i: number) => frames.map((fr) => fr[i]!.x.toFixed(1));
+    const py = (i: number) => frames.map((fr) => fr[i]!.y.toFixed(1));
+    const opV = (i: number) => frames.map((fr) => (0.4 + 0.6 * ((fr[i]!.z + 1.4) / 2.8)).toFixed(2));
+    const opE = (a: number, b: number) => frames.map((fr) => (0.2 + 0.55 * (((fr[a]!.z + fr[b]!.z) / 2 + 1.4) / 2.8)).toFixed(2));
+    edges = E.map(([a, b]) => `<line stroke="${col.line}" stroke-width="1.1" x1="${f0[a]!.x.toFixed(1)}" y1="${f0[a]!.y.toFixed(1)}" x2="${f0[b]!.x.toFixed(1)}" y2="${f0[b]!.y.toFixed(1)}" stroke-opacity="${opE(a, b)[0]}">
+    <animate attributeName="x1" ${A} values="${px(a).join(";")}"/><animate attributeName="y1" ${A} values="${py(a).join(";")}"/>
+    <animate attributeName="x2" ${A} values="${px(b).join(";")}"/><animate attributeName="y2" ${A} values="${py(b).join(";")}"/>
+    <animate attributeName="stroke-opacity" ${A} values="${opE(a, b).join(";")}"/></line>`).join("");
+    verts = V.map((_, i) => `<circle r="2.4" fill="${col.vert}" filter="url(#pvg)" cx="${f0[i]!.x.toFixed(1)}" cy="${f0[i]!.y.toFixed(1)}" fill-opacity="${opV(i)[0]}">
+    <animate attributeName="cx" ${A} values="${px(i).join(";")}"/><animate attributeName="cy" ${A} values="${py(i).join(";")}"/>
+    <animate attributeName="fill-opacity" ${A} values="${opV(i).join(";")}"/></circle>`).join("");
   }
   // 중앙 코어: 회전 안 함. 하늘색(칭찬>욕)이면 발광 펄스.
   const corePulse = col.coreOn

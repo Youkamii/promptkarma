@@ -5,7 +5,7 @@
  */
 import { scan, saveState, claudeProjectsDir, stateDir } from "./scan.js";
 import { MIN_SAMPLE, type Metrics } from "./metrics.js";
-import { renderCard } from "./card.js";
+import { renderPolytope } from "./card.js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -68,7 +68,7 @@ function runCard(): void {
   const username = process.argv[3] ?? "you";
 
   const m = saved.metrics;
-  const svg = renderCard({ username, metrics: m });
+  const svg = renderPolytope({ username, metrics: m });
   const out = join(stateDir(), "card.svg");
   writeFileSync(out, svg);
 
@@ -77,6 +77,8 @@ function runCard(): void {
     f: m.profanityRate.toFixed(1),
     d: m.competence.toFixed(1),
     p: String(m.prompts),
+    karma: m.karma,          // 빠지면 서버가 항상 "white"로 폴백해 오라 색이 죽는다
+    style: "polytope",       // README가 안내하는 기본 배지와 같은 카드
   });
   if (m.promptsPerSwear !== null) q.set("pps", m.promptsPerSwear.toFixed(1));
   const url = `https://promptkarma.vercel.app/api/card?${q.toString()}`;
@@ -120,7 +122,7 @@ async function runSubmit(): Promise<void> {
     process.exit(1);
   }
 
-  const url = `${API_BASE}/api/card?u=${encodeURIComponent(username)}`;
+  const url = `${API_BASE}/api/card?u=${encodeURIComponent(username)}&style=polytope`;
   console.log(`제출 완료: ${username}`);
   console.log("\n이제 이 한 줄만 넣으면 스캔할 때마다 자동 갱신됩니다:");
   console.log(`![promptkarma](${url})`);
