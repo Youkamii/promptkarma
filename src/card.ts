@@ -144,51 +144,87 @@ function circlePts(n: number): number[][] {
     return [Math.cos(a), Math.sin(a), 0];
   });
 }
-const POLY_LEVELS: { verts: number[][]; k: number }[] = [
+// ---- 4D 볼록 정다포체(regular polychora): 회전 그림자가 '일렁이는 구'가 된다 ----
+// 24-cell {3,4,3}: (±1,±1,0,0)의 모든 순열 = 24정점·96모서리. 3D에 없는, 4D 고유 도형.
+export function cell24(): number[][] {
+  const V: number[][] = [];
+  for (let i = 0; i < 4; i++)
+    for (let j = i + 1; j < 4; j++)
+      for (const si of [1, -1])
+        for (const sj of [1, -1]) {
+          const v = [0, 0, 0, 0];
+          v[i] = si; v[j] = sj;
+          V.push(v);
+        }
+  return V;
+}
+// A4(짝순열) 12개 — 600-cell의 96정점 생성에 쓰인다.
+function evenPerms4(): number[][] {
+  const out: number[][] = [];
+  const rec = (rest: number[], acc: number[]): void => {
+    if (rest.length === 0) {
+      let inv = 0;
+      for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) if (acc[i]! > acc[j]!) inv++;
+      if (inv % 2 === 0) out.push(acc);
+      return;
+    }
+    rest.forEach((_, i) => rec([...rest.slice(0, i), ...rest.slice(i + 1)], [...acc, rest[i]!]));
+  };
+  rec([0, 1, 2, 3], []);
+  return out;
+}
+// 600-cell {3,3,5}: 120정점(단위 사원수=이진 정이십면체군)·720모서리. 4D에서 가장 구에 가깝다.
+export function cell600(): number[][] {
+  const V: number[][] = [];
+  for (let i = 0; i < 4; i++) for (const s of [1, -1]) { const v = [0, 0, 0, 0]; v[i] = s; V.push(v); } // 8: (±1,0,0,0)
+  for (const a of [0.5, -0.5]) for (const b of [0.5, -0.5]) for (const c of [0.5, -0.5]) for (const d of [0.5, -0.5]) V.push([a, b, c, d]); // 16: (±½)^4
+  const a = PHI / 2, b = 0.5, c = 1 / (2 * PHI); // 96: (±φ/2,±½,±1/2φ,0)의 짝순열
+  for (const p of evenPerms4())
+    for (const s0 of [1, -1]) for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
+      const base = [a * s0, b * s1, c * s2, 0];
+      V.push([base[p[0]!]!, base[p[1]!]!, base[p[2]!]!, base[p[3]!]!]);
+    }
+  return V;
+}
+
+const POLY_LEVELS: { verts: number[][]; k: number; dim?: number }[] = [
   { verts: circlePts(3), k: 0 },
   { verts: circlePts(4), k: 0 },
   { verts: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]], k: 1 },
   { verts: [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]], k: 1 },
   { verts: [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]], k: 1 },
   { verts: [[0,1,PHI],[0,1,-PHI],[0,-1,PHI],[0,-1,-PHI],[1,PHI,0],[1,-PHI,0],[-1,PHI,0],[-1,-PHI,0],[PHI,0,1],[PHI,0,-1],[-PHI,0,1],[-PHI,0,-1]], k: 1 },
-  { verts: fibSphere(24), k: 2 },
-  { verts: fibSphere(42), k: 2 },
+  { verts: cell24(), k: 1, dim: 4 },   // L6: 24-cell
+  { verts: cell600(), k: 1, dim: 4 },  // L7: 600-cell
 ];
-function fibSphere(n: number): number[][] {
-  const pts: number[][] = [];
-  for (let i = 0; i < n; i++) {
-    const y = 1 - (2 * i) / (n - 1);
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const t = Math.PI * (3 - Math.sqrt(5)) * i;
-    pts.push([Math.cos(t) * r, y, Math.sin(t) * r]);
-  }
-  return pts;
-}
 function pnorm(v: number[]): number[] { const m = Math.hypot(v[0]!, v[1]!, v[2]!) || 1; return [v[0]! / m, v[1]! / m, v[2]! / m]; }
-function pdist(a: number[], b: number[]): number { return Math.hypot(a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!); }
-function polyEdges(V: number[][], k: number): number[][] {
+export function pnorm4(v: number[]): number[] { const m = Math.hypot(v[0]!, v[1]!, v[2]!, v[3]!) || 1; return [v[0]! / m, v[1]! / m, v[2]! / m, v[3]! / m]; }
+export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
+// 최소거리 모서리: 정다면체·정다포체는 모두 "가장 짧은 정점쌍"이 모서리다(2D 폴리곤만 k=0으로 순환).
+export function polyEdges(V: number[][], k: number): number[][] {
   if (k === 0) return V.map((_, i) => [i, (i + 1) % V.length]);
-  if (k === 2) { // 구 근사: 각 정점을 가까운 K개와 연결 (표면 삼각망)
-    const K = 5, seen = new Set<string>(), E: number[][] = [];
-    for (let i = 0; i < V.length; i++) {
-      const near = V.map((v, j) => ({ j, d: pdist(V[i]!, v) })).filter((o) => o.j !== i).sort((a, b) => a.d - b.d);
-      for (let n = 0; n < Math.min(K, near.length); n++) {
-        const j = near[n]!.j, key = i < j ? `${i}-${j}` : `${j}-${i}`;
-        if (!seen.has(key)) { seen.add(key); E.push([i, j]); }
-      }
-    }
-    return E;
-  }
   let min = Infinity;
-  for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) min = Math.min(min, pdist(V[i]!, V[j]!));
+  for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) min = Math.min(min, pdistN(V[i]!, V[j]!));
   const E: number[][] = [];
-  for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) if (pdist(V[i]!, V[j]!) <= min * 1.12) E.push([i, j]);
+  for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) if (pdistN(V[i]!, V[j]!) <= min * 1.12) E.push([i, j]);
   return E;
 }
 // Y축 스핀(회전 애니메이션의 시간축)
 function spinY(v: number[], th: number): number[] {
   const x = v[0]!, y = v[1]!, z = v[2]!;
   return [x * Math.cos(th) - z * Math.sin(th), y, x * Math.sin(th) + z * Math.cos(th)];
+}
+// 4D 등각회전(isoclinic): XW·YZ 평면을 같은 각으로 회전 → 2π에 매끈히 닫힌다.
+// w가 변하면 아래 원근투영에서 안팎이 뒤집혀 4D 특유의 '접혀 도는' 모션이 나온다.
+function rot4(v: number[], th: number): number[] {
+  const c = Math.cos(th), s = Math.sin(th);
+  const x = v[0]!, y = v[1]!, z = v[2]!, w = v[3]!;
+  return [x * c - w * s, y * c - z * s, y * s + z * c, x * s + w * c];
+}
+// 4D→3D 원근투영: w가 시점에 가까울수록 크게 보인다(테서랙트 '안팎 반전' 효과).
+function proj4to3(v: number[], D: number): number[] {
+  const g = D / (D - v[3]!);
+  return [v[0]! * g, v[1]! * g, v[2]! * g];
 }
 // 고정 기울기 투영 (스핀은 spinY로 분리 적용)
 function tiltProject(v: number[], cx: number, cy: number, s: number) {
@@ -213,31 +249,47 @@ export function renderPolytope(input: CardInput): string {
   const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate * 5)));
 
   const level = Math.max(0, Math.min(7, Math.round((intel / 100) * 7)));
-  const V = POLY_LEVELS[level]!.verts.map(pnorm);
-  const E = polyEdges(V, POLY_LEVELS[level]!.k);
+  const lvl = POLY_LEVELS[level]!;
+  const dim = lvl.dim ?? 3;
+  const V = dim === 4 ? lvl.verts.map(pnorm4) : lvl.verts.map(pnorm);
+  const E = polyEdges(V, lvl.k);
+  const heavy = V.length > 60;          // 600-cell(720모서리): 선분 개별 애니메이트하면 ~900KB → 단일 path 모프
   const cx = 210, cy = 156, scale = 100;
+  // 4D 등각회전은 |w|가 클수록 (x,y,z)가 작아져 원근 확대와 상쇄된다 → 3D와 같은 배율로 크기가 맞는다.
+  const D4 = 2.6;                        // 4D→3D 원근 거리(안팎 반전 강도)
   const col = POLY_COLORS[karma]!;
 
-  // 회전: Y축 스핀을 프레임별 좌표로 구워 SMIL animate로 재생 (45초 1회전).
-  // 정적 SVG는 3D 회전을 못 하므로 각 선분/정점 좌표를 프레임 시퀀스로 애니메이트한다.
-  const N = 30, DUR = 45, baseAngle = 0.62;
+  // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 3D/4D 회전을 못 한다).
+  // 3D: Y축 스핀. 4D: XW·YZ 등각회전 → w 원근투영 → 기존 기울기 투영.
+  const N = heavy ? 16 : 30, DUR = 45, baseAngle = 0.62;
+  const project = (v: number[], th: number) =>
+    dim === 4 ? tiltProject(proj4to3(rot4(v, th), D4), cx, cy, scale) : tiltProject(spinY(v, th), cx, cy, scale);
   const frames = Array.from({ length: N + 1 }, (_, f) => {
     const th = baseAngle + (2 * Math.PI * f) / N;
-    return V.map((v) => tiltProject(spinY(v, th), cx, cy, scale));
+    return V.map((v) => project(v, th));
   });
   const A = `dur="${DUR}s" repeatCount="indefinite"`;
-  const sx = (i: number) => frames.map((fr) => fr[i]!.x.toFixed(1)).join(";");
-  const sy = (i: number) => frames.map((fr) => fr[i]!.y.toFixed(1)).join(";");
-  const sopV = (i: number) => frames.map((fr) => (0.4 + 0.6 * ((fr[i]!.z + 1.4) / 2.8)).toFixed(2)).join(";");
-  const sopE = (a: number, b: number) => frames.map((fr) => (0.2 + 0.55 * (((fr[a]!.z + fr[b]!.z) / 2 + 1.4) / 2.8)).toFixed(2)).join(";");
 
-  const edges = E.map(([a, b]) => `<line stroke="${col.line}" stroke-width="1.1">
+  let edges: string, verts: string;
+  if (heavy) {
+    // 720모서리 전체를 하나의 <path>로 그리고 d를 프레임마다 모프(경계값 1개만 애니메이트).
+    const dOf = (fr: { x: number; y: number }[]) =>
+      E.map(([a, b]) => `M${fr[a!]!.x.toFixed(0)} ${fr[a!]!.y.toFixed(0)}L${fr[b!]!.x.toFixed(0)} ${fr[b!]!.y.toFixed(0)}`).join("");
+    edges = `<path fill="none" stroke="${col.line}" stroke-width="1" stroke-opacity="0.55"><animate attributeName="d" ${A} values="${frames.map(dOf).join(";")}"/></path>`;
+    verts = "";                          // 조밀 메시라 정점 점은 생략(구처럼 꽉 참)
+  } else {
+    const sx = (i: number) => frames.map((fr) => fr[i]!.x.toFixed(1)).join(";");
+    const sy = (i: number) => frames.map((fr) => fr[i]!.y.toFixed(1)).join(";");
+    const sopV = (i: number) => frames.map((fr) => (0.4 + 0.6 * ((fr[i]!.z + 1.4) / 2.8)).toFixed(2)).join(";");
+    const sopE = (a: number, b: number) => frames.map((fr) => (0.2 + 0.55 * (((fr[a]!.z + fr[b]!.z) / 2 + 1.4) / 2.8)).toFixed(2)).join(";");
+    edges = E.map(([a, b]) => `<line stroke="${col.line}" stroke-width="1.1">
     <animate attributeName="x1" ${A} values="${sx(a!)}"/><animate attributeName="y1" ${A} values="${sy(a!)}"/>
     <animate attributeName="x2" ${A} values="${sx(b!)}"/><animate attributeName="y2" ${A} values="${sy(b!)}"/>
     <animate attributeName="stroke-opacity" ${A} values="${sopE(a!, b!)}"/></line>`).join("");
-  const verts = V.map((_, i) => `<circle r="2.4" fill="${col.vert}" filter="url(#pvg)">
+    verts = V.map((_, i) => `<circle r="2.4" fill="${col.vert}" filter="url(#pvg)">
     <animate attributeName="cx" ${A} values="${sx(i)}"/><animate attributeName="cy" ${A} values="${sy(i)}"/>
     <animate attributeName="fill-opacity" ${A} values="${sopV(i)}"/></circle>`).join("");
+  }
   // 중앙 코어: 회전 안 함. 하늘색(칭찬>욕)이면 발광 펄스.
   const corePulse = col.coreOn
     ? `<animate attributeName="opacity" dur="3.5s" repeatCount="indefinite" values="0.75;1;0.75"/>`
