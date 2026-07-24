@@ -206,6 +206,32 @@ ok("능력 축 단어가 도형과 같은 지점에서 바뀐다", () => {
   assert.equal(wordAt(69)[0], wordAt(50)[0], "50~69는 같은 단어여야 한다");
   assert.notEqual(wordAt(70)[0], wordAt(69)[0], "69→70에서 단어가 바뀌어야 한다");
 });
+ok("회전 각속도가 티어마다 같고, 정점이 프레임당 최소 0.15px는 움직인다", () => {
+  // 각속도가 티어마다 다르면 점수 한 칸 넘을 때 애니메이션 빠르기가 튄다.
+  // 그리고 프레임당 이동량이 너무 작으면(예전 0.09px) 안티에일리어싱에 걸려 끊겨 보인다.
+  const rates = SOLIDS.map(({ name, c, per }) => {
+    const dur = +render(c).match(/dur="([\d.]+)s"/)![1]!;
+    return { name, deg: (per * (180 / Math.PI)) / dur };   // 초당 회전각
+  });
+  for (const r of rates)
+    assert.ok(Math.abs(r.deg - rates[0]!.deg) < 0.05, `${r.name}: ${r.deg.toFixed(2)}°/s (기준 ${rates[0]!.deg.toFixed(2)}°/s)`);
+
+  // 화면 이동량은 렌더된 키프레임 좌표에서 직접 잰다.
+  for (const { name, c } of SOLIDS) {
+    const svg = render(c);
+    const dur = +svg.match(/dur="([\d.]+)s"/)![1]!;
+    const frames = frameSets(svg);
+    let maxStep = 0;
+    for (let f = 1; f < frames.length; f++)
+      for (let i = 0; i < frames[f]!.length; i++) {
+        const pt = (s: string) => s.split("|")[0]!.split(",").map(Number);
+        const [x0, y0] = pt(frames[f - 1]![i]!), [x1, y1] = pt(frames[f]![i]!);
+        maxStep = Math.max(maxStep, Math.hypot(x1! - x0!, y1! - y0!));
+      }
+    const perFrame = maxStep / ((dur / (frames.length - 1)) * 60);   // 60fps 기준
+    assert.ok(perFrame >= 0.15, `${name}: 프레임당 ${perFrame.toFixed(3)}px — 너무 느려 끊겨 보인다`);
+  }
+});
 ok("키프레임 각도 간격이 티어마다 균일하다", () => {
   // SMIL은 키프레임 사이를 화면좌표로 선형 보간한다. 간격이 벌어지면 구간 중앙에서 반경이
   // 수축해 도형이 펄떡인다(현-호 오차). sweep이 4배인 5-cell은 프레임도 4배여야 한다.
@@ -213,7 +239,7 @@ ok("키프레임 각도 간격이 티어마다 균일하다", () => {
     const per = SOLIDS.find((s) => s.c === c)!.per;
     const N = frameSets(render(c)).length - 1;
     const stepDeg = (per / N) * (180 / Math.PI);
-    const limit = e > 900 ? 23 : 12;      // 조밀한 티어만 성기게 허용
+    const limit = e > 900 ? 16 : 12;      // 조밀한 티어만 조금 성기게 허용
     assert.ok(stepDeg <= limit, `${name}: 키프레임 간격 ${stepDeg.toFixed(1)}° (상한 ${limit}°)`);
   }
 });

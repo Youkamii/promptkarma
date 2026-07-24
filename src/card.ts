@@ -314,8 +314,16 @@ export function renderPolytope(input: CardInput): string {
   // 프레임 수는 sweep에 비례해야 한다. SMIL은 키프레임 사이를 '화면좌표' 선형 보간하므로
   // 키프레임 간격이 벌어질수록 구간 중앙에서 반경이 수축한다(현-호 오차 = 1-cos(간격/2)).
   // 간격을 도형마다 같게 잡아야 왜곡이 균일하다 — sweep이 2π인 5-cell만 N을 4배로 준다.
-  const STEP = E.length > 900 ? Math.PI / 8 : Math.PI / 16;  // 22.5° / 11.25° (조밀한 티어만 성기게)
-  const N = Math.max(4, Math.round(sweep / STEP)), DUR = 45, baseAngle = 0.62;
+  // 회전 각속도를 티어마다 같게 잡는다. sweep이 4배인 5-cell은 한 바퀴에 4배 걸릴 뿐 체감 속도는 같다.
+  // 45초/한 바퀴였을 때는 정점이 초당 5.7px = 프레임당 0.09px밖에 안 움직였다. 한 픽셀을 지나는 데
+  // 11프레임이 걸리니 안티에일리어싱이 중간을 못 그려내고 몇 프레임마다 한 칸씩 튀는 것처럼 보였다.
+  const RATE = Math.PI / 30;                    // 초당 회전각 6° → 정점 이동 ≈ 0.28px/프레임
+  const DUR = +(sweep / RATE).toFixed(1);
+  // 키프레임 간격. SMIL은 키프레임 사이를 화면좌표로 선형 보간하므로 참 궤적에서 벗어나는 양이
+  // 간격²에 비례한다(11.25°에서 0.93px, 5.6°에서 0.24px). 모서리가 많은 티어는 프레임당 용량이
+  // 커서 간격을 넓히고 그만큼 오차를 감수한다.
+  const STEP = E.length > 900 ? Math.PI / 12 : E.length > 200 ? Math.PI / 16 : Math.PI / 32;
+  const N = Math.max(4, Math.round(sweep / STEP)), baseAngle = 0.62;
   const frames = Array.from({ length: N + 1 }, (_, f) => {
     const th = baseAngle + (sweep * f) / N;
     return V.map((v) => tiltProject(proj4to3(rot4(v, th), D4), cx, cy, scale));
