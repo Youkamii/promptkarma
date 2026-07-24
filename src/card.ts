@@ -353,7 +353,7 @@ export function renderPolytope(input: CardInput): string {
     <animate attributeName="cx" ${A} values="${px(i).join(";")}"/><animate attributeName="cy" ${A} values="${py(i).join(";")}"/>
     <animate attributeName="fill-opacity" ${A} values="${opV(i).join(";")}"/></circle>`).join("");
   }
-  // 중앙 코어: 회전 안 함. 하늘색(칭찬>욕)이면 발광 펄스.
+  // 중앙 코어: 아래 턴테이블에 같이 실려 제자리에서 돈다(중심점이라 이동은 없음). 하늘색이면 발광 펄스.
   const corePulse = col.coreOn
     ? `<animate attributeName="opacity" dur="3.5s" repeatCount="indefinite" values="0.75;1;0.75"/>`
     : "";
@@ -388,7 +388,9 @@ export function renderPolytope(input: CardInput): string {
   <rect x="0.6" y="0.6" width="${W - 1.2}" height="${H - 1.2}" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
   ${corners}
   <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(username.toUpperCase())} / PROMPT POLYTOPE</text>
-  ${edges}${core}${verts}
+  <!-- 4D 모프(위에서 구운 프레임)는 그대로 두고, 글리프 전체를 중심 기준 1바퀴/분(60초)으로
+       천천히 돌린다. 베이크 좌표가 아니라 transform 회전이라 각도 보간으로 매끄럽고 용량도 0. -->
+  <g><animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 ${cx} ${cy}" to="360 ${cx} ${cy}" dur="60s" repeatCount="indefinite"/>${edges}${core}${verts}</g>
   ${panel(116, "INTELLECT", String(intel).padStart(2, "0"), iWord)}
   ${panel(190, "KARMA", String(angel).padStart(2, "0"), kWord)}
 </svg>`;

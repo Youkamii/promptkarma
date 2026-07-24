@@ -151,6 +151,32 @@ for (const [i, { name, c }] of SOLIDS.entries()) {
     assert.ok(Math.min(...ys) > 4 && Math.max(...ys) < 296, `${name}: y ${Math.min(...ys)}~${Math.max(...ys)}`);
   });
 }
+ok("글리프 전체가 1바퀴/분 턴테이블에 실려 돈다", () => {
+  // 4D 모프와 별개로, 글리프를 감싼 <g>에 60초 1회전 transform이 걸려야 한다.
+  for (const { name, c } of SOLIDS) {
+    const svg = render(c);
+    assert.match(svg, /<animateTransform[^>]*type="rotate"[^>]*dur="60s"[^>]*repeatCount="indefinite"/, `${name}: 턴테이블 회전이 없다`);
+    assert.match(svg, /from="0 210 156" to="360 210 156"/, `${name}: 중심(210,156) 기준 0→360° 회전이 아니다`);
+  }
+});
+ok("회전 반경이 캔버스·타이틀·패널을 침범하지 않는다", () => {
+  // 턴테이블은 중심에서 가장 먼 점을 반경으로 원을 그린다. 그 원이 다 들어가야 한다.
+  // 세로 아래 296, 세로 위는 타이틀(baseline y40)을 피해 41, 가로 오른쪽 패널 422.
+  const cx = 210, cy = 156;
+  for (const { name, c } of SOLIDS) {
+    let R = 0;
+    for (const frame of frameSets(render(c)))
+      for (const s of frame)
+        for (const pt of s.split("|")) {
+          const [x, y] = pt.split(",").map(Number);
+          R = Math.max(R, Math.hypot(x! - cx, y! - cy));
+        }
+    assert.ok(cx - R > 4, `${name}: 회전시 왼쪽 ${(cx - R).toFixed(0)} ≤ 4`);
+    assert.ok(cx + R < 422, `${name}: 회전시 오른쪽 ${(cx + R).toFixed(0)} ≥ 422(패널)`);
+    assert.ok(cy - R > 41, `${name}: 회전시 위 ${(cy - R).toFixed(0)} ≤ 41(타이틀)`);
+    assert.ok(cy + R < 296, `${name}: 회전시 아래 ${(cy + R).toFixed(0)} ≥ 296`);
+  }
+});
 ok("어느 티어도 160KB를 넘지 않는다 (README 배지로 쓸 수 있어야 한다)", () => {
   for (const { name, c } of SOLIDS) {
     const kb = Buffer.byteLength(render(c), "utf8") / 1024;
@@ -210,7 +236,7 @@ ok("회전 각속도가 티어마다 같고, 정점이 프레임당 최소 0.15p
   // 각속도가 티어마다 다르면 점수 한 칸 넘을 때 애니메이션 빠르기가 튄다.
   // 그리고 프레임당 이동량이 너무 작으면(예전 0.09px) 안티에일리어싱에 걸려 끊겨 보인다.
   const rates = SOLIDS.map(({ name, c, per }) => {
-    const dur = +render(c).match(/dur="([\d.]+)s"/)![1]!;
+    const dur = +render(c).match(/<animate [^>]*dur="([\d.]+)s"/)![1]!;   // 모프 dur (턴테이블 60s 아님)
     return { name, deg: (per * (180 / Math.PI)) / dur };   // 초당 회전각
   });
   for (const r of rates)
@@ -219,7 +245,7 @@ ok("회전 각속도가 티어마다 같고, 정점이 프레임당 최소 0.15p
   // 화면 이동량은 렌더된 키프레임 좌표에서 직접 잰다.
   for (const { name, c } of SOLIDS) {
     const svg = render(c);
-    const dur = +svg.match(/dur="([\d.]+)s"/)![1]!;
+    const dur = +svg.match(/<animate [^>]*dur="([\d.]+)s"/)![1]!;   // 모프 dur
     const frames = frameSets(svg);
     let maxStep = 0;
     for (let f = 1; f < frames.length; f++)
