@@ -138,31 +138,16 @@ export function renderCard(input: CardInput): string {
 const PHI = (1 + Math.sqrt(5)) / 2;
 const MONO = "'Courier New','SFMono-Regular',Consolas,monospace";
 
-function circlePts(n: number): number[][] {
-  return Array.from({ length: n }, (_, i) => {
-    const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
-    return [Math.cos(a), Math.sin(a), 0];
-  });
-}
-// ---- 4D 볼록 정다포체(regular polychora): 회전 그림자가 '일렁이는 구'가 된다 ----
-// 24-cell {3,4,3}: (±1,±1,0,0)의 모든 순열 = 24정점·96모서리. 3D에 없는, 4D 고유 도형.
-export function cell24(): number[][] {
-  const V: number[][] = [];
-  for (let i = 0; i < 4; i++)
-    for (let j = i + 1; j < 4; j++)
-      for (const si of [1, -1])
-        for (const sj of [1, -1]) {
-          const v = [0, 0, 0, 0];
-          v[i] = si; v[j] = sj;
-          V.push(v);
-        }
-  return V;
-}
-// A4(짝순열) 12개 — 600-cell의 96정점 생성에 쓰인다.
-function evenPerms4(): number[][] {
+// ---- 4차원 볼록 정다포체(regular polychora) — 4D에는 정확히 6종뿐이다 ----
+// 사다리 전체가 4D다. 점수는 "6종 중 어느 것을 받는가"만 정한다.
+// 좌표는 표준 구성이고, 정규성(꼭짓점 차수·모서리 길이 균일)은 polytope.test.ts가 검증한다.
+
+/** 4원소 순열. evenOnly면 짝순열 12개(A4)만. */
+function perms4(evenOnly: boolean): number[][] {
   const out: number[][] = [];
   const rec = (rest: number[], acc: number[]): void => {
     if (rest.length === 0) {
+      if (!evenOnly) { out.push(acc); return; }
       let inv = 0;
       for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) if (acc[i]! > acc[j]!) inv++;
       if (inv % 2 === 0) out.push(acc);
@@ -173,47 +158,101 @@ function evenPerms4(): number[][] {
   rec([0, 1, 2, 3], []);
   return out;
 }
-// 600-cell {3,3,5}: 120정점(단위 사원수=이진 정이십면체군)·720모서리. 4D에서 가장 구에 가깝다.
-export function cell600(): number[][] {
-  const V: number[][] = [];
-  for (let i = 0; i < 4; i++) for (const s of [1, -1]) { const v = [0, 0, 0, 0]; v[i] = s; V.push(v); } // 8: (±1,0,0,0)
-  for (const a of [0.5, -0.5]) for (const b of [0.5, -0.5]) for (const c of [0.5, -0.5]) for (const d of [0.5, -0.5]) V.push([a, b, c, d]); // 16: (±½)^4
-  const a = PHI / 2, b = 0.5, c = 1 / (2 * PHI); // 96: (±φ/2,±½,±1/2φ,0)의 짝순열
-  for (const p of evenPerms4())
-    for (const s0 of [1, -1]) for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
-      const base = [a * s0, b * s1, c * s2, 0];
-      V.push([base[p[0]!]!, base[p[1]!]!, base[p[2]!]!, base[p[3]!]!]);
+/**
+ * base를 좌표 순열 × 부호 조합으로 굴린 궤도(중복 제거). 0인 성분에는 부호를 붙이지 않는다.
+ * 정다포체 좌표는 거의 전부 "어떤 기본 벡터의 순열과 부호 전부"라는 형태라 이 하나로 6종을 다 만든다.
+ */
+function orbit(base: number[], evenOnly = false): number[][] {
+  const nz: number[] = [];
+  base.forEach((v, i) => { if (v !== 0) nz.push(i); });
+  const seen = new Set<string>(), out: number[][] = [];
+  for (const p of perms4(evenOnly))
+    for (let m = 0; m < 1 << nz.length; m++) {
+      const s = base.slice();
+      nz.forEach((i, b) => { if (m & (1 << b)) s[i] = -s[i]!; });
+      const v = [s[p[0]!]!, s[p[1]!]!, s[p[2]!]!, s[p[3]!]!];
+      const key = v.map((n) => (Math.round(n * 1e9) / 1e9 || 0).toFixed(9)).join(",");
+      if (!seen.has(key)) { seen.add(key); out.push(v); }
     }
-  return V;
+  return out;
 }
 
-// 정점 성분 수가 곧 차원이다(3D는 3개, 4D는 4개) — 별도 dim 필드를 두면 데이터와 어긋날 수 있다.
-const POLY_LEVELS: { verts: number[][]; k: number }[] = [
-  { verts: circlePts(3), k: 0 },
-  { verts: circlePts(4), k: 0 },
-  { verts: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]], k: 1 },
-  { verts: [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]], k: 1 },
-  { verts: [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]], k: 1 },
-  { verts: [[0,1,PHI],[0,1,-PHI],[0,-1,PHI],[0,-1,-PHI],[1,PHI,0],[1,-PHI,0],[-1,PHI,0],[-1,-PHI,0],[PHI,0,1],[PHI,0,-1],[-PHI,0,1],[-PHI,0,-1]], k: 1 },
-  { verts: cell24(), k: 1 },   // L6: 24-cell (4D)
-  { verts: cell600(), k: 1 },  // L7: 600-cell (4D)
-];
-// 차원 무관 정규화·거리. 3D와 4D 정점에 같은 코드가 쓰인다.
+/** 5-cell {3,3,3}: 5정점·10모서리. 가장 단순한 4D 정다포체(정사면체의 4D판). */
+export function cell5(): number[][] {
+  // R^5의 표준기저 5개는 "합=0" 초평면(=4차원) 위에서 정5포체를 이룬다.
+  // 그 초평면의 정규직교기저(헬머트)로 4D 좌표를 뽑는다.
+  const B: number[][] = [];
+  for (let j = 1; j <= 4; j++) {
+    const n = 1 / Math.sqrt(j * (j + 1));
+    const row = new Array<number>(5).fill(0);
+    for (let k = 0; k < j; k++) row[k] = n;
+    row[j] = -j * n;
+    B.push(row);
+  }
+  return Array.from({ length: 5 }, (_, i) => B.map((r) => r[i]!));
+}
+/** 16-cell {3,3,4}: 8정점·24모서리. 정팔면체의 4D판. */
+export function cell16(): number[][] { return orbit([1, 0, 0, 0]); }
+/** 8-cell(tesseract) {4,3,3}: 16정점·32모서리. 정육면체의 4D판 — '큐브 안의 큐브'. */
+export function cell8(): number[][] { return orbit([1, 1, 1, 1]); }
+/** 24-cell {3,4,3}: 24정점·96모서리. 3D에 대응물이 없는 4D 고유 도형(자기쌍대). */
+export function cell24(): number[][] { return orbit([1, 1, 0, 0]); }
+/** 600-cell {3,3,5}: 120정점·720모서리. 단위 사원수(이진 정이십면체군) 그 자체. */
+export function cell600(): number[][] {
+  return [
+    ...orbit([1, 0, 0, 0]),                            // 8
+    ...orbit([0.5, 0.5, 0.5, 0.5]),                    // 16
+    ...orbit([PHI / 2, 0.5, 1 / (2 * PHI), 0], true),  // 96 (짝순열)
+  ];
+}
+/** 120-cell {5,3,3}: 600정점·1200모서리. 4D 정다포체 중 가장 복잡하다. */
+export function cell120(): number[][] {
+  const p = PHI, pi = 1 / PHI, pi2 = pi * pi, p2 = p * p, r5 = Math.sqrt(5);
+  return [
+    ...orbit([0, 0, 2, 2]),            // 24
+    ...orbit([1, 1, 1, r5]),           // 64
+    ...orbit([pi2, p, p, p]),          // 64
+    ...orbit([pi, pi, pi, p2]),        // 64
+    ...orbit([0, pi2, 1, p2], true),   // 96
+    ...orbit([0, pi, p, r5], true),    // 96
+    ...orbit([pi, 1, p, 2], true),     // 192
+  ];
+}
+
+/** 점수 낮음 → 단순, 높음 → 복잡. 4D 정다포체 6종이 그대로 6단계다. */
+const POLY_LEVELS: number[][][] = [cell5(), cell16(), cell8(), cell24(), cell600(), cell120()];
+
 export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
-// 최소거리 모서리: 정다면체·정다포체는 모두 "가장 짧은 정점쌍"이 모서리다(2D 폴리곤만 k=0으로 순환).
-export function polyEdges(V: number[][], k: number): [number, number][] {
-  if (k === 0) return V.map((_, i): [number, number] => [i, (i + 1) % V.length]);
+/** 최소거리 모서리: 정다포체는 "가장 짧은 정점쌍"이 곧 모서리다. */
+export function polyEdges(V: number[][]): [number, number][] {
   let min = Infinity;
   for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) min = Math.min(min, pdistN(V[i]!, V[j]!));
   const E: [number, number][] = [];
   for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) if (pdistN(V[i]!, V[j]!) <= min * 1.12) E.push([i, j]);
   return E;
 }
-// Y축 스핀(회전 애니메이션의 시간축)
-function spinY(v: number[], th: number): number[] {
-  const x = v[0]!, y = v[1]!, z = v[2]!;
-  return [x * Math.cos(th) - z * Math.sin(th), y, x * Math.sin(th) + z * Math.cos(th)];
+/**
+ * 등각회전이 도형을 자기 자신으로 되돌리는 최소 각. 정점끼리 자리를 바꿀 뿐 그림은 픽셀 동일하므로,
+ * 이 각만 굽으면 루프가 이음새 없이 닫히고 프레임 중복이 사라진다(도형마다 다르므로 실측한다).
+ */
+export function rotPeriod(V: number[][]): number {
+  const key = (W: number[][]) =>
+    W.map((v) => v.map((n) => (Math.round(n * 1e6) / 1e6 || 0).toFixed(6)).join(",")).sort().join("|");
+  const base = key(V);
+  for (const th of [Math.PI / 2, Math.PI]) if (key(V.map((v) => rot4(v, th))) === base) return th;
+  return 2 * Math.PI;
+}
+/** 레벨별 기하는 입력과 무관한 상수다. 처음 쓰일 때 한 번만 굽는다(120-cell은 O(600²)). */
+const GEOM = new Map<number, { V: number[][]; E: [number, number][]; sweep: number }>();
+function geometry(level: number) {
+  let g = GEOM.get(level);
+  if (!g) {
+    const V = POLY_LEVELS[level]!.map(pnormN);
+    g = { V, E: polyEdges(V), sweep: rotPeriod(V) };
+    GEOM.set(level, g);
+  }
+  return g;
 }
 // 4D 등각회전(isoclinic): XW·YZ 평면을 같은 각으로 회전 → 2π에 매끈히 닫힌다.
 // w가 변하면 아래 원근투영에서 안팎이 뒤집혀 4D 특유의 '접혀 도는' 모션이 나온다.
@@ -249,27 +288,20 @@ export function renderPolytope(input: CardInput): string {
   const karma = m.karma ?? "white";
   const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate * 5)));
 
-  const level = Math.max(0, Math.min(7, Math.round((intel / 100) * 7)));
-  const lvl = POLY_LEVELS[level]!;
-  const is4 = lvl.verts[0]!.length === 4;
-  const V = lvl.verts.map(pnormN);
-  const E = polyEdges(V, lvl.k);
-  const heavy = V.length > 60;          // 600-cell(720모서리): 선분 개별 애니메이트하면 ~900KB → 단일 path 모프
+  const level = Math.max(0, Math.min(5, Math.round((intel / 100) * 5)));
+  const { V, E, sweep } = geometry(level);
+  const heavy = V.length > 60;          // 600·120-cell: 선분 개별 애니메이트하면 ~1MB → 단일 path 모프
   const cx = 210, cy = 156, scale = 100;
-  // 4D 등각회전은 |w|가 클수록 (x,y,z)가 작아져 원근 확대와 상쇄된다 → 3D와 같은 배율로 크기가 맞는다.
+  // 등각회전은 |w|가 클수록 (x,y,z)가 작아져 원근 확대와 상쇄된다 → 3D 시절과 같은 배율로 크기가 맞는다.
   const D4 = 2.6;                        // 4D→3D 원근 거리(안팎 반전 강도)
   const col = POLY_COLORS[karma]!;
 
-  // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 3D/4D 회전을 못 한다).
-  // 3D는 Y축 스핀이라 한 바퀴가 2π다. 4D 등각회전은 π/2에서 다포체가 자기 자신으로 되돌아온다
-  // (정점끼리 자리를 바꿀 뿐 그림은 픽셀 동일) — 2π를 다 구우면 같은 모션이 4번 반복되고
-  // 프레임의 3/4이 중복이다. 그래서 4D는 π/2만 굽는다: 같은 각도 간격에 프레임 수는 1/4.
-  const rotate = is4 ? (v: number[], th: number) => proj4to3(rot4(v, th), D4) : spinY;
-  const SWEEP = is4 ? Math.PI / 2 : 2 * Math.PI;
-  const N = is4 ? 8 : 30, DUR = 45, baseAngle = 0.62;
+  // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 4D 회전을 못 한다).
+  // XW·YZ 등각회전 → w 원근투영 → 기울기 투영. sweep은 도형이 자기 자신으로 되돌아오는 각(rotPeriod).
+  const N = E.length > 900 ? 6 : 8, DUR = 45, baseAngle = 0.62;
   const frames = Array.from({ length: N + 1 }, (_, f) => {
-    const th = baseAngle + (SWEEP * f) / N;
-    return V.map((v) => tiltProject(rotate(v, th), cx, cy, scale));
+    const th = baseAngle + (sweep * f) / N;
+    return V.map((v) => tiltProject(proj4to3(rot4(v, th), D4), cx, cy, scale));
   });
   const A = `dur="${DUR}s" repeatCount="indefinite"`;
 
