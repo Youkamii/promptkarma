@@ -237,6 +237,10 @@ const POLY_LEVELS: (() => number[][])[] = [cell3, cell5, cell16, cell8, cell24, 
 const INTEL_CUTS = [18, 34, 46, 56, 68, 84];
 /** 능력 축 라벨. 도형과 **같은 level**로 고르므로 문구와 도형이 어긋날 수 없다. 패널 폭상 10글자 이내. */
 const LEVEL_WORDS = ["CHAOTIC", "SCATTERED", "LOOSE", "DELIBERATE", "STRUCTURED", "SYSTEMATIC", "EXACTING"];
+// 세 상수의 길이는 묶여 있다: level은 0..INTEL_CUTS.length라 도형·라벨 배열이 그만큼 있어야 한다.
+// 컷 재조정 시 한쪽만 늘리면 POLY_LEVELS[level]이 undefined가 되므로 로드 시점에 막는다.
+if (POLY_LEVELS.length !== INTEL_CUTS.length + 1 || POLY_LEVELS.length !== LEVEL_WORDS.length)
+  throw new Error("POLY_LEVELS·INTEL_CUTS·LEVEL_WORDS 길이 불일치 (티어 = 컷 + 1)");
 
 export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
@@ -297,21 +301,27 @@ function tiltProject(v: number[], cx: number, cy: number, s: number) {
   const f = 5 / (5 - z2);
   return { x: cx + x * s * f, y: cy - y1 * s * f, z: z2 };
 }
-// OKLCH(지각 균등 색공간) → sRGB hex. 발산 팔레트를 지각적으로 고르게 만들려고 직접 변환한다.
-function oklch(L: number, C: number, H: number): string {
+// OKLCH(지각 균등 색공간) → 선형 sRGB. 색역 판정과 hex 변환에 재사용.
+function oklchLin(L: number, C: number, H: number): number[] {
   const h = (H * Math.PI) / 180, a = C * Math.cos(h), b = C * Math.sin(h);
-  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
-  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
-  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
-  const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3;
-  const lin = [
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [
     4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
     -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
     -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
   ];
-  return "#" + lin.map((u) => {
-    const c = Math.max(0, Math.min(1, u <= 0.0031308 ? 12.92 * u : 1.055 * u ** (1 / 2.4) - 0.055));
-    return Math.round(c * 255).toString(16).padStart(2, "0");
+}
+// OKLCH → sRGB hex. 색역을 벗어나면 채널을 클립하는 대신 L·H를 두고 채도만 줄여 맞춘다.
+// 클립하면 명도가 틀어져 "등명도 발산 팔레트"가 깨지므로(적 팔이 청록 팔보다 어두워짐), 감마 매핑한다.
+function oklch(L: number, C: number, H: number): string {
+  const inGamut = (c: number) => oklchLin(L, c, H).every((u) => u >= -1e-6 && u <= 1 + 1e-6);
+  let c = C;
+  if (!inGamut(C)) { let lo = 0, hi = C; for (let i = 0; i < 16; i++) { const mid = (lo + hi) / 2; if (inGamut(mid)) lo = mid; else hi = mid; } c = lo; }
+  return "#" + oklchLin(L, c, H).map((u) => {
+    const g = Math.max(0, Math.min(1, u <= 0.0031308 ? 12.92 * u : 1.055 * u ** (1 / 2.4) - 0.055));
+    return Math.round(g * 255).toString(16).padStart(2, "0");
   }).join("");
 }
 // 선악 오라 색: 발산 그라디언트. k=0 caustic(따뜻한 적) ↔ 0.5 중립(회색) ↔ 1 affirming(차가운 청록).
@@ -334,7 +344,7 @@ export function renderPolytope(input: CardInput): string {
   // renderCard와 같은 방어. 다포체가 이제 기본 카드라 입력이 어긋나도 레벨 인덱스를 벗어나면 안 된다
   // (NaN이면 Math.round도 NaN이고, clamp 두 겹으로도 NaN은 안 걸러진다 → POLY_LEVELS[NaN]).
   const intel = clamp(Math.round(m.competence) || 0, 0, 100);
-  const karma = m.karma ?? "white";
+  const glow = m.karma === "cyan";      // 칭찬>욕이면 발광(발산 색과 별개 축이라 붉은 카드도 발광할 수 있다)
   const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate * 5)));
 
   const level = INTEL_CUTS.reduce((n, c) => n + (intel >= c ? 1 : 0), 0);   // 0..6 (7티어)
@@ -344,7 +354,7 @@ export function renderPolytope(input: CardInput): string {
   // 등각회전은 |w|가 클수록 (x,y,z)가 작아져 원근 확대와 상쇄된다 → 3D 시절과 같은 배율로 크기가 맞는다.
   const D4 = 2.6;                        // 4D→3D 원근 거리(안팎 반전 강도)
   // 선악 색은 angel(패널에 뜨는 그 숫자)에 연동 → 색과 숫자가 항상 일치. 칭찬>욕이면 발광 코어.
-  const col = karmaColors(angel / 100, karma === "cyan");
+  const col = karmaColors(angel / 100, glow);
 
   // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 4D 회전을 못 한다).
   // XW·YZ 등각회전 → w 원근투영 → 기울기 투영. sweep은 도형이 자기 자신으로 되돌아오는 각(rotPeriod).
@@ -391,7 +401,7 @@ export function renderPolytope(input: CardInput): string {
     <animate attributeName="cx" ${A} values="${px(i).join(";")}"/><animate attributeName="cy" ${A} values="${py(i).join(";")}"/>
     <animate attributeName="fill-opacity" ${A} values="${opV(i).join(";")}"/></circle>`).join("");
   }
-  // 중앙 코어: 아래 턴테이블에 같이 실려 제자리에서 돈다(중심점이라 이동은 없음). 하늘색이면 발광 펄스.
+  // 중앙 코어: 턴테이블에 실려 제자리에서 돈다(중심점이라 이동 없음). 칭찬>욕이면(색과 무관) 발광 펄스.
   const corePulse = col.coreOn
     ? `<animate attributeName="opacity" dur="3.5s" repeatCount="indefinite" values="0.75;1;0.75"/>`
     : "";
