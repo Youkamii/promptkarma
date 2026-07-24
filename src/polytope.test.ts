@@ -169,6 +169,43 @@ ok("모든 티어가 SMIL 없이도 그려진다 (정적 좌표 폴백)", () => 
     }
   }
 });
+ok("패널의 큰 숫자와 오른쪽 단어가 겹치지 않는다", () => {
+  // 세 자리 값(100)에서 숫자와 STRUCTURED류 10글자 단어가 맞붙던 문제. 등폭 폰트라 폭이 계산된다.
+  const ADV = 0.6;                                   // Courier 계열 advance ≈ 0.6em
+  for (const c of [0, 20, 40, 60, 80, 100]) {
+    const svg = render(c);
+    const texts = [...svg.matchAll(/<text\s([^>]*)>([^<]*)<\/text>/g)].map((m) => {
+      const at = (n: string) => m[1]!.match(new RegExp(`${n}="([^"]*)"`))?.[1];
+      const x = +at("x")!, fs = +(at("font-size") ?? 12), ls = +(at("letter-spacing") ?? 0);
+      const w = m[2]!.length * (fs * ADV + ls);
+      const anchor = at("text-anchor") ?? "start";
+      const lo = anchor === "middle" ? x - w / 2 : anchor === "end" ? x - w : x;
+      return { row: Math.round(+at("y")! / 20), lo, hi: lo + w, s: m[2]! };
+    }).filter((t) => t.lo >= 400);                   // 패널 영역만 (왼쪽 타이틀 제외)
+
+    for (const t of texts)
+      for (const u of texts) {
+        if (t === u || t.row !== u.row) continue;    // 같은 줄끼리만 비교
+        const overlap = Math.min(t.hi, u.hi) - Math.max(t.lo, u.lo);
+        assert.ok(overlap <= 0, `intel=${c}: "${t.s}"와 "${u.s}"가 ${overlap.toFixed(1)}px 겹친다`);
+      }
+  }
+});
+ok("능력 축 단어가 도형과 같은 지점에서 바뀐다", () => {
+  // 단어는 도형과 같은 level로 골라야 한다. 임계가 따로 놀면 65점은 한 단어, 70점은 다른 도형처럼 어긋난다.
+  const wordAt = (c: number) => render(c).match(/font-size="11"[^>]*>([A-Z]+)</g)!.map((s) => s.match(/>([A-Z]+)</)![1]!);
+  for (const { name, c } of SOLIDS) {
+    const lo = wordAt(c)[0]!;
+    // 같은 밴드 안에서는 단어가 안 바뀌고, 밴드를 넘으면 바뀐다.
+    const band = SOLIDS.findIndex((s) => s.c === c);
+    if (band > 0) assert.notEqual(lo, wordAt(SOLIDS[band - 1]!.c)[0]!, `${name}: 앞 티어와 단어가 같다`);
+  }
+  // 밴드 경계 양쪽에서 단어가 정확히 갈리는가 (49/50, 69/70)
+  assert.equal(wordAt(49)[0], wordAt(30)[0], "30~49는 같은 단어여야 한다");
+  assert.notEqual(wordAt(50)[0], wordAt(49)[0], "49→50에서 단어가 바뀌어야 한다");
+  assert.equal(wordAt(69)[0], wordAt(50)[0], "50~69는 같은 단어여야 한다");
+  assert.notEqual(wordAt(70)[0], wordAt(69)[0], "69→70에서 단어가 바뀌어야 한다");
+});
 ok("키프레임 각도 간격이 티어마다 균일하다", () => {
   // SMIL은 키프레임 사이를 화면좌표로 선형 보간한다. 간격이 벌어지면 구간 중앙에서 반경이
   // 수축해 도형이 펄떡인다(현-호 오차). sweep이 4배인 5-cell은 프레임도 4배여야 한다.

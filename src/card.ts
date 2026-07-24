@@ -225,6 +225,12 @@ export function cell120(): number[][] {
  * 미리 굽지 않아야 다포체를 안 쓰는 경로가 120-cell 생성 비용을 물지 않는다.
  */
 const POLY_LEVELS: (() => number[][])[] = [cell5, cell16, cell8, cell24, cell600, cell120];
+/**
+ * 능력 축 라벨. 도형과 **같은 level**로 고르므로 문구와 도형이 어긋날 수 없다
+ * (예전에는 33/66 임계로 따로 갈라져, 65점은 DELIBERATE+24-cell, 70점은 STRUCTURED+600-cell처럼
+ *  문구와 도형이 서로 다른 지점에서 바뀌었다). 패널 폭 때문에 10글자를 넘기지 않는다.
+ */
+const LEVEL_WORDS = ["SCATTERED", "LOOSE", "DELIBERATE", "STRUCTURED", "SYSTEMATIC", "EXACTING"];
 
 export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
@@ -348,7 +354,7 @@ export function renderPolytope(input: CardInput): string {
   const plus = (x: number, y: number) => `<path d="M${x - 6},${y} h12 M${x},${y - 6} v12" stroke="#5a5a66" stroke-width="1" opacity="0.45"/>`;
   const corners = [plus(40, 44), plus(W - 40, 44), plus(40, H - 40), plus(W - 40, H - 40)].join("");
 
-  const iWord = intel >= 66 ? "STRUCTURED" : intel >= 33 ? "DELIBERATE" : "SCATTERED";
+  const iWord = LEVEL_WORDS[level]!;
   const kWord = karma === "cyan" ? "AFFIRMING" : karma === "black" ? "CAUSTIC" : "TEMPERATE";
   // 데이터 패널: 라벨(왼) · 큰 숫자 · 단어(오른). 겹치지 않게 폭·간격 확보.
   const panel = (y: number, label: string, val: string, word: string) => {
@@ -356,7 +362,9 @@ export function renderPolytope(input: CardInput): string {
     const br = (px: number, py: number, dx: number, dy: number) => `<path d="M${px + dx},${py} h${-dx} v${dy}" stroke="#6a6a78" stroke-width="1.3" fill="none" opacity="0.7"/>`;
     return `${br(x, y, 13, 13)}${br(x + w, y, -13, 13)}${br(x, y + h, 13, -13)}${br(x + w, y + h, -13, -13)}
       <text x="${x + 20}" y="${y + 35}" font-family="${MONO}" font-size="12.5" letter-spacing="1.5" fill="#9a9aa8">${label}</text>
-      <text x="${x + 150}" y="${y + 39}" font-family="${MONO}" font-size="24" font-weight="700" fill="#ffffff" text-anchor="middle">${val}</text>
+      <!-- 큰 숫자는 x+140 중앙정렬. 오른쪽 단어(최대 10글자 × 7.6px = 76px, 끝이 x+w-16)의
+           왼쪽 끝이 592라, 세 자리 값("100" = 43.2px)을 x+150에 두면 1.6px 겹친다. -->
+      <text x="${x + 140}" y="${y + 39}" font-family="${MONO}" font-size="24" font-weight="700" fill="#ffffff" text-anchor="middle">${val}</text>
       <text x="${x + w - 16}" y="${y + 35}" font-family="${MONO}" font-size="11" letter-spacing="1" fill="#8a8a98" text-anchor="end">${word}</text>`;
   };
 
