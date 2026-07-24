@@ -219,18 +219,24 @@ export function cell120(): number[][] {
   ];
 }
 
+/** 정사면체 {3,3}: 4정점·6모서리. 3D. 바닥 티어 — "아직 4D로 못 올라옴"의 문턱, 회전만(모프 없음). */
+export function cell3(): number[][] { return [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]]; }
+
 /**
- * 점수 낮음 → 단순, 높음 → 복잡. 4D 정다포체 6종이 그대로 6단계다.
+ * 점수 낮음 → 단순, 높음 → 복잡. 3D 정사면체(바닥) + 4D 정다포체 6종 = 7단계.
  * 생성자를 담는다 — 이 모듈은 게이지 카드(renderCard)와 CLI도 import하므로,
  * 미리 굽지 않아야 다포체를 안 쓰는 경로가 120-cell 생성 비용을 물지 않는다.
  */
-const POLY_LEVELS: (() => number[][])[] = [cell5, cell16, cell8, cell24, cell600, cell120];
+const POLY_LEVELS: (() => number[][])[] = [cell3, cell5, cell16, cell8, cell24, cell600, cell120];
 /**
- * 능력 축 라벨. 도형과 **같은 level**로 고르므로 문구와 도형이 어긋날 수 없다
- * (예전에는 33/66 임계로 따로 갈라져, 65점은 DELIBERATE+24-cell, 70점은 STRUCTURED+600-cell처럼
- *  문구와 도형이 서로 다른 지점에서 바뀌었다). 패널 폭 때문에 10글자를 넘기지 않는다.
+ * INTELLECT → 티어 경계(7단계이므로 컷 6개). 균등 분할이 아니라 가운데를 촘촘히 둔 완만한 종 모양 —
+ * 점수가 가운데 몰리는 사람들을 여러 티어로 퍼뜨린다. 상대평가(퍼센타일)가 아니라 절대평가라
+ * 남이 submit해도 내 티어는 안 바뀌고 CLI가 로컬에서 티어를 바로 낸다.
+ * 잠정값: 현재 표본 2건뿐이라 감으로 잡았다. 데이터가 쌓이면 실제 분포의 분위수로 재조정하고 버전을 올린다.
  */
-const LEVEL_WORDS = ["SCATTERED", "LOOSE", "DELIBERATE", "STRUCTURED", "SYSTEMATIC", "EXACTING"];
+const INTEL_CUTS = [18, 34, 46, 56, 68, 84];
+/** 능력 축 라벨. 도형과 **같은 level**로 고르므로 문구와 도형이 어긋날 수 없다. 패널 폭상 10글자 이내. */
+const LEVEL_WORDS = ["CHAOTIC", "SCATTERED", "LOOSE", "DELIBERATE", "STRUCTURED", "SYSTEMATIC", "EXACTING"];
 
 export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
@@ -254,15 +260,21 @@ export function rotPeriod(V: number[][]): number {
   return 2 * Math.PI;
 }
 /** 레벨별 기하는 입력과 무관한 상수다. 처음 쓰일 때 한 번만 굽는다(120-cell은 O(600²)). */
-const GEOM = new Map<number, { V: number[][]; E: [number, number][]; sweep: number }>();
+const GEOM = new Map<number, { V: number[][]; E: [number, number][]; sweep: number; is4: boolean }>();
 function geometry(level: number) {
   let g = GEOM.get(level);
   if (!g) {
     const V = POLY_LEVELS[level]!().map(pnormN);
-    g = { V, E: polyEdges(V), sweep: rotPeriod(V) };
+    const is4 = V[0]!.length === 4;            // 정점 성분 수가 곧 차원(사면체는 3, 정다포체는 4)
+    g = { V, E: polyEdges(V), sweep: is4 ? rotPeriod(V) : 2 * Math.PI, is4 };
     GEOM.set(level, g);
   }
   return g;
+}
+// 3D Y축 스핀 — 4D가 아닌 바닥 티어(사면체)용. 한 바퀴 = 2π. 모프 없이 그냥 돈다.
+function spin3(v: number[], th: number): number[] {
+  const x = v[0]!, y = v[1]!, z = v[2]!;
+  return [x * Math.cos(th) - z * Math.sin(th), y, x * Math.sin(th) + z * Math.cos(th)];
 }
 // 4D 등각회전(isoclinic): XW·YZ 평면을 같은 각으로 회전 → 2π에 매끈히 닫힌다.
 // w가 변하면 아래 원근투영에서 안팎이 뒤집혀 4D 특유의 '접혀 도는' 모션이 나온다.
@@ -285,11 +297,36 @@ function tiltProject(v: number[], cx: number, cy: number, s: number) {
   const f = 5 / (5 - z2);
   return { x: cx + x * s * f, y: cy - y1 * s * f, z: z2 };
 }
-const POLY_COLORS: Record<string, { line: string; vert: string; coreOn: boolean; core: string }> = {
-  black: { line: "#4a4a52", vert: "#8a8a95", coreOn: false, core: "#ffffff" },
-  white: { line: "#d8d8e0", vert: "#ffffff", coreOn: false, core: "#ffffff" },
-  cyan: { line: "#cdeeff", vert: "#ffffff", coreOn: true, core: "#bfeeff" },
-};
+// OKLCH(지각 균등 색공간) → sRGB hex. 발산 팔레트를 지각적으로 고르게 만들려고 직접 변환한다.
+function oklch(L: number, C: number, H: number): string {
+  const h = (H * Math.PI) / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+  const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3;
+  const lin = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+  return "#" + lin.map((u) => {
+    const c = Math.max(0, Math.min(1, u <= 0.0031308 ? 12.92 * u : 1.055 * u ** (1 / 2.4) - 0.055));
+    return Math.round(c * 255).toString(16).padStart(2, "0");
+  }).join("");
+}
+// 선악 오라 색: 발산 그라디언트. k=0 caustic(따뜻한 적) ↔ 0.5 중립(회색) ↔ 1 affirming(차가운 청록).
+// 채도만 가운데서 0으로 죽이고 색상은 양끝 고정(무지개로 쓸지 않기) — 이게 발산 팔레트의 핵심.
+function karmaColors(k: number, glow: boolean): { line: string; vert: string; core: string; coreOn: boolean } {
+  const t = (clamp(k, 0, 1) - 0.5) * 2;          // -1(caustic) .. +1(affirming)
+  const hue = t < 0 ? 25 : 200;                  // 따뜻한 적 / 차가운 청록
+  const c = Math.abs(t);                          // 가운데 0 .. 양끝 1
+  return {
+    line: oklch(0.78, 0.02 + 0.15 * c, hue),      // 어두운 배경에서 읽히게 밝게
+    vert: oklch(0.9, 0.02 + 0.11 * c, hue),
+    core: oklch(0.84, 0.05 + 0.15 * c, hue),
+    coreOn: glow,                                 // 칭찬>욕이면 발광 펄스(레어 보상)
+  };
+}
 
 export function renderPolytope(input: CardInput): string {
   const { username, metrics: m } = input;
@@ -300,13 +337,14 @@ export function renderPolytope(input: CardInput): string {
   const karma = m.karma ?? "white";
   const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate * 5)));
 
-  const level = Math.max(0, Math.min(5, Math.round((intel / 100) * 5)));
-  const { V, E, sweep } = geometry(level);
+  const level = INTEL_CUTS.reduce((n, c) => n + (intel >= c ? 1 : 0), 0);   // 0..6 (7티어)
+  const { V, E, sweep, is4 } = geometry(level);
   const heavy = V.length > 60;          // 600·120-cell: 선분 개별 애니메이트하면 ~1MB → 단일 path 모프
   const cx = 210, cy = 156, scale = 100;
   // 등각회전은 |w|가 클수록 (x,y,z)가 작아져 원근 확대와 상쇄된다 → 3D 시절과 같은 배율로 크기가 맞는다.
   const D4 = 2.6;                        // 4D→3D 원근 거리(안팎 반전 강도)
-  const col = POLY_COLORS[karma]!;
+  // 선악 색은 angel(패널에 뜨는 그 숫자)에 연동 → 색과 숫자가 항상 일치. 칭찬>욕이면 발광 코어.
+  const col = karmaColors(angel / 100, karma === "cyan");
 
   // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 4D 회전을 못 한다).
   // XW·YZ 등각회전 → w 원근투영 → 기울기 투영. sweep은 도형이 자기 자신으로 되돌아오는 각(rotPeriod).
@@ -326,7 +364,7 @@ export function renderPolytope(input: CardInput): string {
   const N = Math.max(4, Math.round(sweep / STEP)), baseAngle = 0.62;
   const frames = Array.from({ length: N + 1 }, (_, f) => {
     const th = baseAngle + (sweep * f) / N;
-    return V.map((v) => tiltProject(proj4to3(rot4(v, th), D4), cx, cy, scale));
+    return V.map((v) => tiltProject(is4 ? proj4to3(rot4(v, th), D4) : spin3(v, th), cx, cy, scale));
   });
   const A = `dur="${DUR}s" repeatCount="indefinite"`;
   // 애니메이트되는 속성은 전부 정적 기본값을 함께 박는다. SMIL 미지원 렌더러(resvg·일부
@@ -363,7 +401,7 @@ export function renderPolytope(input: CardInput): string {
   const corners = [plus(40, 44), plus(W - 40, 44), plus(40, H - 40), plus(W - 40, H - 40)].join("");
 
   const iWord = LEVEL_WORDS[level]!;
-  const kWord = karma === "cyan" ? "AFFIRMING" : karma === "black" ? "CAUSTIC" : "TEMPERATE";
+  const kWord = ["CAUSTIC", "GUARDED", "TEMPERATE", "CIVIL", "AFFIRMING"][Math.min(4, Math.floor(angel / 20))]!;
   // 데이터 패널: 라벨(왼) · 큰 숫자 · 단어(오른). 겹치지 않게 폭·간격 확보.
   const panel = (y: number, label: string, val: string, word: string) => {
     const x = 422, w = 262, h = 58;
