@@ -401,11 +401,21 @@ export function renderPolytope(input: CardInput): string {
     <animate attributeName="cx" ${A} values="${px(i).join(";")}"/><animate attributeName="cy" ${A} values="${py(i).join(";")}"/>
     <animate attributeName="fill-opacity" ${A} values="${opV(i).join(";")}"/></circle>`).join("");
   }
-  // 중앙 코어: 턴테이블에 실려 제자리에서 돈다(중심점이라 이동 없음). 칭찬>욕이면(색과 무관) 발광 펄스.
-  const corePulse = col.coreOn
-    ? `<animate attributeName="opacity" dur="3.5s" repeatCount="indefinite" values="0.75;1;0.75"/>`
+  // 중앙 코어: 또렷한 심(블러 없음) + 은은한 후광(블러) 2겹. 과거의 단일 블러 별은 흐릿한 얼룩이었다.
+  // 턴테이블에 실려 제자리에서 돈다. 칭찬>욕이면(색과 무관) 후광이 발광 펄스.
+  const starPath = (r: number) => {
+    const s = r / 12;
+    const pts = [[0, -12], [2.2, -2.2], [12, 0], [2.2, 2.2], [0, 12], [-2.2, 2.2], [-12, 0], [-2.2, -2.2]]
+      .map(([x, y]) => `${(x! * s).toFixed(1)},${(y! * s).toFixed(1)}`);
+    return `M${pts.join(" L")} Z`;
+  };
+  const haloOp = col.coreOn ? 0.42 : 0.22;
+  const haloPulse = col.coreOn
+    ? `<animate attributeName="opacity" dur="3.5s" repeatCount="indefinite" values="${haloOp};${(haloOp + 0.3).toFixed(2)};${haloOp}"/>`
     : "";
-  const core = `<g transform="translate(${cx},${cy})" opacity="${col.coreOn ? 0.95 : 0.32}"><path d="M0,-12 L2.2,-2.2 L12,0 L2.2,2.2 L0,12 L-2.2,2.2 L-12,0 L-2.2,-2.2 Z" fill="${col.core}" filter="url(#pcg)"/>${corePulse}</g>`;
+  const core = `<g transform="translate(${cx},${cy})">` +
+    `<path d="${starPath(11)}" fill="${col.core}" opacity="${haloOp}" filter="url(#pcg)">${haloPulse}</path>` +
+    `<path d="${starPath(5)}" fill="${col.core}" opacity="${col.coreOn ? 1 : 0.92}"/></g>`;
 
   const plus = (x: number, y: number) => `<path d="M${x - 6},${y} h12 M${x},${y - 6} v12" stroke="#5a5a66" stroke-width="1" opacity="0.45"/>`;
   const corners = [plus(40, 44), plus(W - 40, 44), plus(40, H - 40), plus(W - 40, H - 40)].join("");
