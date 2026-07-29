@@ -27,7 +27,7 @@ const ok = (label: string, fn: () => void) => { fn(); checks++; console.log(`  o
 /**
  * 7티어: 3D 정사면체(바닥) + 4D 볼록 정다포체 6종.
  * per = 등각회전이 도형을 자기 자신으로 되돌리는 각. 4D 5종은 π/2, 5-cell·사면체는 2π.
- * c = 그 티어가 나오는 대표 INTELLECT 점수(INTEL_CUTS = [18,34,46,56,68,84] 기준).
+ * c = 그 티어가 나오는 대표 구조 신호 값(STRUCTURE_CUTS = [18,34,46,56,68,84] 기준).
  */
 const HALF = Math.PI / 2, FULL = 2 * Math.PI;
 const SOLIDS = [
@@ -97,7 +97,7 @@ const dots = (svg: string) => (svg.match(/<circle r="2\.4"/g) ?? []).length;
 const render = (c: number, prof = 0, praise = 0) => renderPolytope({ username: "tester", metrics: mk(c, prof, praise) });
 
 // -------------------------------------------------------- 2. 렌더·티어 매핑
-console.log("\n레벨별 렌더 (level = intel ≥ 각 컷의 개수, 컷 [18,34,46,56,68,84])");
+console.log("\n레벨별 렌더 (level = 구조 신호 ≥ 각 컷의 개수, 컷 [18,34,46,56,68,84])");
 for (const [i, { name, v, e, c }] of SOLIDS.entries()) {
   ok(`L${i} ${name}: 모서리 ${e}개`, () => {
     const svg = render(c);
@@ -108,14 +108,14 @@ for (const [i, { name, v, e, c }] of SOLIDS.entries()) {
     assert.ok(svg.startsWith("<svg") && svg.trimEnd().endsWith("</svg>"), `${name}: SVG 봉인`);
   });
 }
-ok("INTELLECT 밴드가 7티어와 정확히 대응한다", () => {
+ok("구조 신호 밴드가 7티어와 정확히 대응한다", () => {
   const bands: [number, number, number][] = [   // [시작, 끝, 기대 레벨]
     [0, 17, 0], [18, 33, 1], [34, 45, 2], [46, 55, 3], [56, 67, 4], [68, 83, 5], [84, 100, 6],
   ];
   for (const [lo, hi, lv] of bands)
     for (const intel of [lo, hi]) {
       const got = frameSets(render(intel))[0]!.length;
-      assert.equal(got, SOLIDS[lv]!.e, `INTELLECT ${intel} → L${lv} ${SOLIDS[lv]!.name}(모서리 ${SOLIDS[lv]!.e}) 인데 ${got}`);
+      assert.equal(got, SOLIDS[lv]!.e, `구조 신호 ${intel} → L${lv} ${SOLIDS[lv]!.name}(모서리 ${SOLIDS[lv]!.e}) 인데 ${got}`);
     }
 });
 ok("사다리가 복잡도 순으로 단조 증가한다", () => {
@@ -190,10 +190,10 @@ ok("모프 각속도가 티어마다 같고, 정점이 프레임당 최소 0.15p
   }
 });
 
-// ------------------------------------------------------- 4. 라벨·karma 색
-console.log("\n라벨·선악 색");
-const intelWord = (svg: string) => svg.match(/font-size="11"[^>]*>([A-Z]+)</)![1]!;   // 첫 font-size 11 = INTELLECT 단어
-const karmaWord = (svg: string) => [...svg.matchAll(/font-size="11"[^>]*>([A-Z]+)</g)][1]![1]!; // 둘째 = KARMA 단어
+// ------------------------------------------------------- 4. 관찰 라벨·색
+console.log("\n관찰 라벨·색");
+const intelWord = (svg: string) => svg.match(/font-size="11"[^>]*>([^<]+)</)![1]!;
+const karmaWord = (svg: string) => [...svg.matchAll(/font-size="11"[^>]*>([^<]+)</g)][1]![1]!;
 const glyphColor = (svg: string) => svg.match(/<line stroke="#([0-9a-f]{6})"/)![1]!;
 const rgb = (hex: string) => [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 
@@ -210,28 +210,29 @@ ok("패널 텍스트가 같은 줄에서 겹치지 않는다", () => {
     }).filter((t) => t.lo >= 400);
     for (const t of texts) for (const u of texts) {
       if (t === u || t.row !== u.row) continue;
-      assert.ok(Math.min(t.hi, u.hi) - Math.max(t.lo, u.lo) <= 0, `intel=${c}: "${t.s}"와 "${u.s}" 겹침`);
+      assert.ok(Math.min(t.hi, u.hi) - Math.max(t.lo, u.lo) <= 0, `구조 신호=${c}: "${t.s}"와 "${u.s}" 겹침`);
     }
   }
 });
-ok("능력 축 단어가 도형과 같은 밴드에서 바뀐다", () => {
+ok("중립적인 도형 번호가 구조 신호 밴드와 함께 바뀐다", () => {
   assert.equal(intelWord(render(46)), intelWord(render(55)), "46~55는 같은 단어");
   assert.notEqual(intelWord(render(56)), intelWord(render(55)), "55→56 단어 바뀜");
-  assert.equal(intelWord(render(5)), "CHAOTIC", "바닥은 CHAOTIC");
-  assert.equal(intelWord(render(95)), "EXACTING", "최상은 EXACTING");
+  assert.equal(intelWord(render(5)), "SHAPE 1", "바닥은 SHAPE 1");
+  assert.equal(intelWord(render(95)), "SHAPE 7", "최상은 SHAPE 7");
 });
-ok("선악 색이 발산 그라디언트다: 욕 많음=따뜻, 없음=차가움, 가운데=중립", () => {
-  const warm = rgb(glyphColor(render(60, 20)));   // angel 0  (caustic)
-  const mid = rgb(glyphColor(render(60, 10)));    // angel 50 (neutral)
-  const cool = rgb(glyphColor(render(60, 0)));    // angel 100(affirming)
-  assert.ok(warm[0]! - warm[2]! > 40, `caustic가 따뜻해야(R≫B): ${warm}`);
-  assert.ok(cool[2]! - cool[0]! > 40, `affirming이 차가워야(B≫R): ${cool}`);
+ok("욕설 사전 비율 색은 많음=따뜻, 없음=차가움, 가운데=중립이다", () => {
+  const warm = rgb(glyphColor(render(60, 100)));
+  const mid = rgb(glyphColor(render(60, 50)));
+  const cool = rgb(glyphColor(render(60, 0)));
+  assert.ok(warm[0]! - warm[2]! > 40, `욕설 탐지 100%는 따뜻해야(R≫B): ${warm}`);
+  assert.ok(cool[2]! - cool[0]! > 40, `욕설 탐지 0%는 차가워야(B≫R): ${cool}`);
   assert.ok(Math.abs(mid[0]! - mid[2]!) < 40, `중립이 회색이어야(R≈B): ${mid}`);
 });
-ok("선악 단어가 angel 밴드와 대응한다", () => {
-  assert.equal(karmaWord(render(60, 20)), "CAUSTIC", "angel 0");
-  assert.equal(karmaWord(render(60, 10)), "TEMPERATE", "angel 50");
-  assert.equal(karmaWord(render(60, 0)), "AFFIRMING", "angel 100");
+ok("다포체 카드도 능력·선악 판정 문구를 쓰지 않는다", () => {
+  const svg = render(60, 20);
+  assert.equal(karmaWord(svg), "LEXICON");
+  assert.doesNotMatch(svg, /INTELLECT|KARMA|CHAOTIC|CAUSTIC|AFFIRMING/);
+  assert.match(svg, /SELF-REPORTED|UNVERIFIED URL DATA|LOCAL SCAN/);
 });
 ok("칭찬>욕일 때만 발광 코어가 켜진다", () => {
   assert.match(render(60, 0, 20), /attributeName="opacity" dur="3.5s"/, "칭찬>욕 → 발광 ON");

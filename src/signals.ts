@@ -1,10 +1,6 @@
 /**
- * 능력 축(D) 신호. "프롬프트가 길다"가 아니라 "지시가 구조화돼 있다"를 잰다.
- * 길이는 의미 없는 패딩으로 부풀릴 수 있지만 구조는 실제로 명시해야 올라간다.
- *
- * 주의: 하네스(스킬/슬래시커맨드) 사용자는 구조가 스킬 정의로 옮겨가서
- * 프롬프트 본문의 마커가 줄어든다(측정된 상관 -0.684). 그래서 슬래시커맨드
- * 호출은 scan 단계에서 구조화로 별도 합산한다 — 여기서는 본문만 본다.
+ * 프롬프트에서 직접 확인할 수 있는 작성 습관 신호.
+ * 품질·지능을 판정하지 않고 맥락, 조건, 단계 표현이 있는지만 본다.
  */
 
 const FILE_PATH =
@@ -14,20 +10,36 @@ const SPEC = /(조건[:：]|요구사항|반드시|절대|단,|제약|기준[:�
 const CODE_FENCE = /```/;
 const URL = /https?:\/\//;
 
-/** 사고 외주 패턴. 던지기("알아서 해")와 위임(스펙 다 주고 마지막만)은 길이로 갈린다. */
+/** 구체적인 범위 없이 결정을 통째로 넘길 때 자주 쓰는 표현. */
 const OUTSOURCE =
-  /(알아서|[니네]가\s*(해|정해|판단|골라)|모르겠|난\s*몰라|아무거나|대충|\bwhatever\b|\byou\s+decide\b)/i;
+  /(알아서\s*(해|정해|판단|골라)|아무거나\s*(해|골라|정해)|대충\s*(해|만들|고쳐)|\byou\s+decide\b|\bwhatever\s+(works|you\s+want)\b)/i;
 
-/** 구조 마커가 하나라도 있으면 true. 파일경로·번호목록(2개+)·조건·코드블록·URL. */
+export interface PromptSignals {
+  /** 파일 경로, 코드 블록, 링크처럼 작업 대상을 가리키는 단서. */
+  context: boolean;
+  /** 조건, 요구사항, 기준처럼 결과의 범위를 좁히는 표현. */
+  constraints: boolean;
+  /** 두 개 이상의 목록 항목으로 작업을 나눈 표현. */
+  steps: boolean;
+  /** "알아서", "아무거나"처럼 결정을 통째로 넘기는 표현. */
+  outsourced: boolean;
+}
+
+export function analyzeSignals(text: string): PromptSignals {
+  return {
+    context: FILE_PATH.test(text) || CODE_FENCE.test(text) || URL.test(text),
+    constraints: SPEC.test(text),
+    steps: (text.match(LIST_ITEM)?.length ?? 0) >= 2,
+    outsourced: OUTSOURCE.test(text),
+  };
+}
+
+/** 맥락·조건·단계 신호 중 하나라도 있으면 구조 신호가 있는 프롬프트다. */
 export function isStructured(text: string): boolean {
-  if (FILE_PATH.test(text)) return true;
-  if ((text.match(LIST_ITEM)?.length ?? 0) >= 2) return true;
-  if (SPEC.test(text)) return true;
-  if (CODE_FENCE.test(text)) return true;
-  if (URL.test(text)) return true;
-  return false;
+  const s = analyzeSignals(text);
+  return s.context || s.constraints || s.steps;
 }
 
 export function isOutsourced(text: string): boolean {
-  return OUTSOURCE.test(text);
+  return analyzeSignals(text).outsourced;
 }

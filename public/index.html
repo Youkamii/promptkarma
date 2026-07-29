@@ -2,26 +2,207 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>promptkarma</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Claude Code 로그를 로컬에서 읽고 프롬프트 습관과 다음 행동을 알려주는 설명 가능한 코치">
+<title>promptkarma — 로컬 프롬프트 습관 코치</title>
 <style>
-  body { margin:0; font-family:'Pretendard','Malgun Gothic',system-ui,sans-serif;
-    background:linear-gradient(180deg,#fff6f1,#ffe9e0); color:#2e1f1d;
-    min-height:100vh; display:grid; place-items:center; text-align:center; padding:40px; }
-  h1 { font-size:48px; color:#f2704e; margin:0 0 8px; }
-  p { font-size:18px; color:#a9756a; margin:6px 0; }
-  code { background:#fffaf7; border:1px solid #ffd9cc; border-radius:8px; padding:4px 10px; font-size:15px; }
-  a { color:#f2704e; }
-  .card { margin-top:24px; }
+  :root {
+    color-scheme: dark;
+    --bg: #09090d;
+    --panel: #14141b;
+    --line: #292936;
+    --text: #f2f2f7;
+    --muted: #a3a3b2;
+    --purple: #c084fc;
+    --mint: #5eead4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 20% 0%, #23172f 0, transparent 34rem),
+      var(--bg);
+    color: var(--text);
+    font-family: Pretendard, "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  main { width: min(1080px, calc(100% - 40px)); margin: 0 auto; }
+  nav {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  nav strong { letter-spacing: -.02em; }
+  a { color: inherit; }
+  .link { color: var(--muted); text-decoration: none; }
+  .link:hover { color: var(--text); }
+  .hero {
+    padding: 88px 0 60px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 620px);
+    align-items: center;
+    gap: 64px;
+  }
+  .eyebrow {
+    color: var(--mint);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .12em;
+  }
+  h1 {
+    margin: 14px 0 20px;
+    font-size: clamp(40px, 5vw, 54px);
+    line-height: 1.06;
+    letter-spacing: -.055em;
+  }
+  h1 span { display: block; white-space: nowrap; }
+  .lead { margin: 0; color: var(--muted); font-size: 19px; max-width: 610px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0; }
+  .pill {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 11px;
+    color: #c8c8d3;
+    font-size: 12px;
+  }
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 17px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .button.primary { color: #0b0b0e; background: var(--mint); border-color: var(--mint); }
+  .preview img { display: block; width: 100%; height: auto; filter: drop-shadow(0 22px 60px #0009); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 30px 0 72px;
+  }
+  .feature {
+    min-height: 190px;
+    padding: 26px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+  }
+  .feature b { color: var(--purple); font-size: 13px; letter-spacing: .08em; }
+  .feature h2 { margin: 10px 0 7px; font-size: 21px; }
+  .feature p { margin: 0; color: var(--muted); }
+  .truth {
+    margin-bottom: 80px;
+    padding: 32px;
+    border: 1px solid #3b2b48;
+    border-radius: 14px;
+    background: #17111d;
+  }
+  .truth h2 { margin: 0 0 8px; font-size: 24px; }
+  .truth p { margin: 0; color: #beb3c6; }
+  .start {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 36px;
+    padding: 0 0 84px;
+  }
+  .start h2 { margin-top: 0; font-size: 30px; }
+  .start p { color: var(--muted); }
+  pre {
+    margin: 0;
+    padding: 22px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #0d0d12;
+    color: #d8d8e2;
+    font: 14px/1.75 "Cascadia Code", Consolas, monospace;
+  }
+  footer {
+    padding: 24px 0 40px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media (max-width: 820px) {
+    .hero { grid-template-columns: 1fr; padding-top: 58px; }
+    .grid, .start { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    main { width: min(100% - 32px, 1080px); }
+    h1 span { white-space: normal; }
+    .preview { display: none; }
+  }
 </style>
 </head>
 <body>
-<div>
-  <h1>promptkarma</h1>
-  <p>AI CLI 세션에서 당신이 친 프롬프트로 태도와 활용 능력을 매깁니다.</p>
-  <p><code>npx promptkarma scan</code></p>
-  <div class="card"><img src="/api/card?u=Youkamii" width="380" alt="promptkarma card"></div>
-  <p><a href="https://github.com/Youkamii/promptkarma">GitHub</a></p>
-</div>
+<main>
+  <nav>
+    <strong>promptkarma</strong>
+    <a class="link" href="https://github.com/Youkamii/promptkarma">GitHub ↗</a>
+  </nav>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">LOCAL PROMPT HABIT COACH</div>
+      <h1><span>배지는 나중.</span><span>다음 요청부터.</span></h1>
+      <p class="lead">AI가 같은 내용을 되묻거나 수정이 빙빙 돈 세션 뒤에 실행해보세요. Claude Code 로그를 내 컴퓨터에서만 읽고, 다음 요청에서 시험해볼 작성 습관 하나를 제안합니다.</p>
+      <div class="pills">
+        <span class="pill">원문 전송 없음</span>
+        <span class="pill">LLM 없음</span>
+        <span class="pill">설명 가능한 규칙</span>
+        <span class="pill">선택형 공유</span>
+      </div>
+      <div class="cta">
+        <a class="button primary" href="https://github.com/Youkamii/promptkarma#현재-상태">로컬에서 실행하기</a>
+        <a class="button" href="https://github.com/Youkamii/promptkarma#어떻게-측정하나요">측정 규칙 보기</a>
+      </div>
+    </div>
+    <div class="preview">
+      <img src="/feedback-sample.svg" width="700" height="260" alt="맥락, 조건, 단계 비율과 다음 실험을 보여주는 promptkarma 로컬 스캔 예시">
+    </div>
+  </section>
+
+  <section class="grid" aria-label="핵심 기능">
+    <article class="feature">
+      <b>01 · OBSERVE</b>
+      <h2>사람이 쓴 입력만 골라냅니다</h2>
+      <p>도구 출력, 자동 주입, 긴 붙여넣기와 중복 기록을 빼고 실제 프롬프트의 집계값만 남깁니다.</p>
+    </article>
+    <article class="feature">
+      <b>02 · EXPLAIN</b>
+      <h2>관찰 신호를 나눠 봅니다</h2>
+      <p>맥락, 조건, 단계, 기준 없는 통째 위임 표현이 얼마나 보였는지 재현 가능한 규칙으로 따로 보여줍니다.</p>
+    </article>
+    <article class="feature">
+      <b>03 · TRY NEXT</b>
+      <h2>한 번에 하나만 바꿉니다</h2>
+      <p>낮게 관찰된 항목을 부족함으로 판정하지 않고, 다음 요청에서 한 번 시험해볼 후보 하나로 제안합니다.</p>
+    </article>
+  </section>
+
+  <section class="truth">
+    <h2>이건 검증 자격증이 아닙니다.</h2>
+    <p>공개값은 사용자가 올린 집계 숫자이며 현재 GitHub 계정 소유권과 로그 진위를 확인하지 못합니다. 그래서 카드에 <strong>SELF-REPORTED</strong>를 표시합니다. 표본이 30개보다 적으면 요약 대신 수집 중 상태만 보여줍니다.</p>
+  </section>
+
+  <section class="start">
+    <div>
+      <h2>아직은 저장소에서 실행합니다.</h2>
+      <p>npm에 공개되지 않아 <code>npx promptkarma</code>는 현재 동작하지 않습니다. Claude Code를 사용한 컴퓨터에서 저장소를 받은 뒤 Bun으로 실행하세요.</p>
+    </div>
+    <pre>git clone https://github.com/Youkamii/promptkarma.git
+cd promptkarma
+bun install
+bun run src/index.ts scan</pre>
+  </section>
+
+  <footer>promptkarma · MIT · 원문은 로컬 집계 뒤 버립니다.</footer>
+</main>
 </body>
 </html>

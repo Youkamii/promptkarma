@@ -2,133 +2,143 @@
 
 # promptkarma
 
-**AI 코딩 CLI 세션에서 당신이 친 프롬프트를 읽어, AI를 대하는 태도와 활용 능력을 매깁니다.**
+**Claude Code 로그를 내 컴퓨터에서만 읽고, 프롬프트 습관과 다음에 바꿔볼 한 가지를 알려주는 작은 코치입니다.**
 
-![promptkarma card](https://promptkarma.vercel.app/api/card?u=Youkamii&style=polytope)
+![promptkarma local feedback sample](./public/feedback-sample.svg)
 
 </div>
 
-## 이게 뭔가
+## 왜 쓰나요?
 
-`tokscale` 같은 서비스는 토큰을 **얼마나 많이** 썼는지 잽니다.
-promptkarma는 당신이 AI에게 **어떻게** 말하는지를 잽니다.
+AI가 같은 내용을 되묻거나, 수정 요청이 빙빙 돌거나, 무엇을 끝으로 볼지 적기 어려웠던 세션 뒤에 실행해보세요. promptkarma가 그 원인을 증명하지는 않습니다. 대신 내가 자주 쓰거나 빠뜨린 표현을 다음처럼 나눠 보여줍니다.
 
-- **인성 축** — AI에게 얼마나 험하게 구는가 (욕설 발생률)
-- **능력 축** — 지시가 얼마나 구조적인가 (파일·조건·순서를 명시하는가)
+- 파일·코드·링크처럼 **작업 맥락**을 주는가
+- 조건·요구사항·완료 기준을 **분명히 적는가**
+- 큰 요청을 **단계나 목록**으로 나누는가
+- “알아서 해”, “아무거나 골라”처럼 기준 없이 결정을 **통째로 넘기는가**
 
-두 축이 만나 네 가지 유형이 됩니다: **유능한 폭군 · 성마른 진상 · 온화한 장인 · 착한 방목자**.
+낮게 관찰된 항목은 능력이나 부족함을 판정하는 점수가 아닙니다. 다음 프롬프트에서 한 번 시험해볼 후보 하나를 제안하는 데만 씁니다. 욕설 어근 일치는 필요할 때만 보는 별도의 말투 참고값입니다. 원문은 서버로 보내지 않습니다.
 
-## 원리
+> promptkarma는 능력 검사나 자격증이 아닙니다. 정규식으로 관찰한 작성 신호를 설명하는 휴리스틱입니다.
 
-Claude Code 세션 로그(`~/.claude/projects/`)에서 **사람이 친 프롬프트만** 추출합니다.
-AI 답변·도구 출력·붙여넣은 문서는 제외합니다 — 로그의 99%가 그것이고, 사람이 친 말은 1%도 안 됩니다.
+## 현재 상태
 
-- **욕설 발생률** `F = 욕설이 든 프롬프트 / 전체 프롬프트`
-- **구조화 지수** `D = (구조 마커가 든 프롬프트 + 슬래시커맨드) / 전체`
-
-전부 로컬에서 정규식으로 계산합니다. **원문은 어디에도 저장·전송되지 않습니다. 숫자만 남습니다.**
-
-## 사용법
+아직 npm에 공개하지 않았습니다. 따라서 `npx promptkarma` 안내는 현재 동작하지 않습니다. 저장소를 받은 뒤 Bun으로 실행할 수 있습니다.
 
 ```bash
-# 로컬 로그를 스캔하고 지표 출력
-npx promptkarma scan
-
-# 지표를 SVG 카드로 렌더
-npx promptkarma card <github-username>
+git clone https://github.com/Youkamii/promptkarma.git
+cd promptkarma
+bun install
+bun run src/index.ts scan
 ```
 
-## 내 프로필에 배지 넣기
+현재는 Claude Code의 `~/.claude/projects/` 세션만 읽습니다.
 
-먼저 한 번 올립니다:
+## 스캔 결과
+
+```text
+promptkarma · 로컬 스캔
+──────────────────────────────────
+사람 프롬프트    128개
+
+프롬프트 습관
+  구조 신호      43.8%
+  맥락 단서      31.3%  파일·코드·링크
+  조건·기준      18.8%
+  단계·목록      12.5%
+  통째 위임       3.1%  알아서 해·아무거나 골라 등
+
+말투 참고 (선택)
+  욕설 어근 일치   1.6%
+
+다음에 해볼 한 가지
+  큰 요청은 두 단계 이상의 목록으로 나눠 적어보세요.
+```
+
+표본이 30개보다 적으면 요약을 만들지 않고 얼마나 더 필요한지만 알려줍니다.
+
+## 어떻게 측정하나요?
+
+사람이 직접 입력한 Claude Code 프롬프트만 골라 다음 신호를 셉니다.
+
+| 관찰값 | 규칙 |
+|---|---|
+| 맥락 단서 | 파일 경로, 코드 블록, URL 중 하나 이상 |
+| 조건·기준 | `조건`, `요구사항`, `반드시`, `must` 같은 표현 |
+| 단계·목록 | 목록 항목이 두 개 이상 |
+| 통째 위임 | `알아서 해`, `아무거나 골라`, `대충 고쳐`, `you decide`처럼 기준 없이 결정을 넘기는 표현 |
+| 구조 신호 | 맥락·조건·단계 중 하나 이상 |
+| 말투 참고 | 공개된 한글·영문 욕설 어근에 하나 이상 일치 |
+
+도구 출력, 에이전트가 넣은 메시지, 5,000자를 넘는 붙여넣기, 중복 UUID는 제외합니다. 규칙은 단순하고 재현 가능하지만 문맥을 완전히 이해하지 못하므로 오탐과 누락이 생길 수 있습니다.
+
+`bun run src/index.ts scan --explain`을 쓰면 각 신호가 잡힌 짧은 예시를 터미널에서 확인할 수 있습니다. 예시는 화면에만 표시하며 `state.json`에 저장하거나 서버로 보내지 않습니다.
+
+## 로컬 카드
+
+스캔 뒤 로컬 SVG를 만들 수 있습니다.
 
 ```bash
-npx promptkarma scan
-npx promptkarma submit <your-github-username>
+bun run src/index.ts card <label>
 ```
 
-그다음 GitHub README나 프로필에 아래 한 줄을 붙입니다. 이후 `submit`할 때마다 자동 갱신됩니다:
+생성 위치는 `~/.promptkarma/card.svg`입니다. 기본 카드는 다음 정보를 숨기지 않습니다.
+
+- 실제 구조 신호 비율
+- 선택형 말투 참고값
+- 표본 수
+- 휴리스틱 규칙 버전
+- 로컬 스캔인지 자기신고 공개값인지
+- 다음에 해볼 한 가지
+
+## 공개 공유는 아직 실험 기능입니다
+
+```bash
+bun run src/index.ts submit <github-username>
+```
 
 ```markdown
-![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>&style=polytope)
+[![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>&style=feedback)](https://github.com/Youkamii/promptkarma)
 ```
 
-클릭 시 이동을 넣으려면(tokscale 스타일):
+현재 서버는 GitHub 계정 소유권과 로컬 로그의 진위를 확인하지 못합니다. 그래서 공개 카드는 `SELF-REPORTED`로 표시합니다. URL에 지표를 직접 넣은 카드는 `UNVERIFIED URL DATA`로 표시합니다.
+
+계정 연결을 나중에 추가하더라도 확인되는 것은 “이 GitHub 계정이 제출했다”는 사실뿐입니다. 원본 로그를 믿을 수 있는 환경에서 검사하지 않는 한 능력이나 지표가 검증됐다고 표현하지 않습니다.
+
+## 기존 다포체 카드
+
+다포체 카드는 시각 실험으로 남겨두었습니다. 새 기본값은 아니지만 기존 링크는 그대로 동작합니다.
 
 ```markdown
-[![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>&style=polytope)](https://github.com/<username>)
+![promptkarma polytope](https://promptkarma.vercel.app/api/card?u=<username>&style=polytope)
 ```
 
-## 도형 = 능력, 색 = 선악
+## 개인정보
 
-배지는 두 축을 동시에 보여줍니다. **어떤 도형인가**(능력)와 **무슨 색인가**(선악).
+- 원문 프롬프트는 메모리에서 집계한 뒤 버립니다.
+- `~/.promptkarma/state.json`에는 숫자와 측정 시각만 저장합니다.
+- `submit`을 실행할 때만 집계 숫자를 서버로 보냅니다.
+- 공개 공유가 필요 없으면 `scan`과 로컬 카드만 사용하면 됩니다.
 
-### 능력 → 도형 (7단계)
+## 알려진 한계
 
-바닥은 3차원 정사면체, 그 위는 4차원 볼록 정다포체입니다. 4차원 정다포체는 우주에 정확히 **6종**뿐(3차원 정다면체가 5종뿐인 것의 4차원판)이라, 사면체 하나를 문턱으로 두면 사다리가 딱 7칸으로 떨어집니다.
+- Claude Code만 지원합니다.
+- 평생 누적값이라 최근 변화나 7일·30일 추세를 아직 보여주지 않습니다.
+- 구조 표현이 실제 작업 성공률을 높이는지는 아직 검증하지 않았습니다.
+- 공개 제출에 인증이 없어 다른 사용자의 값을 막지 못합니다.
+- npm 패키지가 아직 없어 한 줄 설치가 되지 않습니다.
 
-| INTELLECT | 도형 | 슐레플리 | 정점 / 모서리 | 라벨 |
-|---|---|---|---|---|
-| 0–17 | **정사면체** (3D) | {3,3} | 4 / 6 | CHAOTIC |
-| 18–33 | **5-cell** | {3,3,3} | 5 / 10 | SCATTERED |
-| 34–45 | **16-cell** | {3,3,4} | 8 / 24 | LOOSE |
-| 46–55 | **8-cell** (tesseract) | {4,3,3} | 16 / 32 | DELIBERATE |
-| 56–67 | **24-cell** | {3,4,3} | 24 / 96 | STRUCTURED |
-| 68–83 | **600-cell** | {3,3,5} | 120 / 720 | SYSTEMATIC |
-| 84–100 | **120-cell** | {5,3,3} | 600 / 1200 | EXACTING |
+제품 방향과 다음 검증 항목은 [이슈 #2](https://github.com/Youkamii/promptkarma/issues/2)에 정리했습니다.
 
-정사면체는 "아직 4차원에 못 올라온" 문턱이라 4D 접힘 없이 회전만 합니다. 24-cell은 3차원에 대응물이 없는 4차원 고유 도형이고, 120-cell은 정다포체 중 가장 복잡합니다.
+## 개발
 
-경계는 균등 분할이 아니라 가운데를 촘촘히 둔 **완만한 종 모양**입니다. 점수가 몰리는 중간대를 여러 티어로 퍼뜨리기 위해서고, **절대평가**라 남이 등록해도 당신 티어는 안 바뀝니다. (표본이 쌓이면 실제 분포로 컷을 재조정합니다.)
-
-도형은 4차원에서 실제로 회전합니다. XW·YZ 평면을 같은 각으로 도는 **등각회전(isoclinic)** 에 `w` 원근 투영을 걸어 안팎이 뒤집히며 접히고, 그 위에 전체가 **1바퀴/분**으로 천천히 돕니다.
-
-### 선악 → 색 (연속 발산 그라디언트)
-
-오라 색은 karma입니다. 욕설이 많을수록 **따뜻한 적(CAUSTIC)**, 없을수록 **차가운 청록(AFFIRMING)**, 그 사이는 중립 회색으로 매끄럽게 이어집니다. 색은 KARMA 숫자에 그대로 연동되고, 칭찬이 욕보다 많으면 중앙 코어가 **발광**합니다.
-
-```
-CAUSTIC ●━━━━━━━●━━━━━━━● AFFIRMING
- (욕 많음)   (중립)    (칭찬>욕, 발광)
+```bash
+bun run typecheck
+bun run test
+bun run build
 ```
 
-### 게이지 카드 (다른 스타일)
-
-`&style=polytope`를 빼면 아바타 + 가로 게이지 두 줄짜리 카드가 나옵니다.
-
-```markdown
-![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>)
-```
-
-`?theme=` 로 프리셋을 고릅니다(게이지 카드 전용): `black`(기본) · `ivory` · `cyberpunk` · `korean`
-
-```markdown
-![promptkarma](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=cyberpunk)
-```
-
-| black | cyberpunk |
-|---|---|
-| ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=black) | ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=cyberpunk) |
-| **ivory** | **korean** |
-| ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=ivory) | ![](https://promptkarma.vercel.app/api/card?u=Youkamii&theme=korean) |
-
-### 색 직접 지정
-
-hex 색으로 개별 오버라이드(`#` 없이). `bg_color` `text_color` `title_color` `karma_color` `intel_color` `track_color` `border_color`:
-
-```markdown
-![promptkarma](https://promptkarma.vercel.app/api/card?u=Youkamii&bg_color=47157A&karma_color=FFE881&intel_color=fff)
-```
-
-## 측정 정의 (v1)
-
-| 항목 | 규칙 |
-|---|---|
-| 프롬프트 | `entrypoint=cli`인 사람 입력만. 도구 결과·붙여넣기(5000자+)·하네스 주입 턴 제외 |
-| 중복 제거 | 레코드 `uuid` 기준 (세션 resume 시 복사분 제거) |
-| 표본 하한 | 프롬프트 30개 미만은 "측정 중" (작은 표본은 신뢰 불가) |
-
-필터 정의를 바꾸면 전 유저 순위가 함께 움직이므로, 파서 변경 시 버전을 올립니다.
+핵심 지표·피드백 회귀 검사와 기존 다포체 회귀 검사를 함께 실행합니다.
 
 ## License
 
