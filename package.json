@@ -25,6 +25,9 @@
   "homepage": "https://promptkarma.vercel.app",
   "bugs": "https://github.com/Youkamii/promptkarma/issues",
   "keywords": ["claude-code", "prompt", "local-first", "developer-tools"],
+  "engines": {
+    "node": ">=20.1"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.10.0",
