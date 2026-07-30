@@ -7,7 +7,6 @@
  * 라벨은 영문이라 폰트 fallback 문제 없음.
  */
 import { MIN_SAMPLE, type Metrics } from "./metrics.js";
-import { buildFeedback } from "./feedback.js";
 
 export interface Theme {
   bg1: string; bg2: string;
@@ -105,22 +104,26 @@ function renderCollectingCard(input: CardInput, width: number, height: number): 
     const unavailable = input.provenance === "unavailable";
     const remaining = Math.max(0, MIN_SAMPLE - sample);
     const progress = clamp(sample / MIN_SAMPLE, 0, 1);
-    const nextMove = unavailable
-      ? "RETRY THIS CARD IN A MOMENT"
+    const title = unavailable
+      ? "PUBLIC BADGE TEMPORARILY UNAVAILABLE"
       : sample === 0
-        ? "RUN NPX PROMPTKARMA SCAN TO START"
-        : `COLLECT ${remaining} MORE PROMPT${remaining === 1 ? "" : "S"}`;
+        ? "NO PUBLIC BADGE"
+        : `SAMPLE ${sample}/${MIN_SAMPLE}`;
+    const detail = unavailable
+      ? "THE STORED SNAPSHOT COULD NOT BE LOADED"
+      : sample === 0
+        ? "NO SELF-REPORTED SCAN FOR THIS USER"
+        : "KARMA × INTELLECT HIDDEN BELOW MINIMUM SAMPLE";
+    const sampleStatus = unavailable
+      ? "SOURCE STATUS · DATA UNAVAILABLE"
+      : `BADGE STATUS · ${remaining} PROMPT${remaining === 1 ? "" : "S"} BELOW MINIMUM`;
     const status = unavailable
       ? `
-        <text x="${width / 2}" y="120" font-family="${FONT}" font-size="23" font-weight="850" text-anchor="middle" fill="${C.ink}">PUBLIC CARD TEMPORARILY UNAVAILABLE</text>
-        <text x="${width / 2}" y="147" font-family="${FONT}" font-size="11" font-weight="700" text-anchor="middle" fill="${C.muted}" letter-spacing="0.8">THE STORED SNAPSHOT COULD NOT BE LOADED</text>
-        <rect x="${width / 2 - 80}" y="165" width="160" height="5" rx="2.5" fill="${C.title}" opacity="0.45"/>`
+        <rect x="${width / 2 - 80}" y="174" width="160" height="5" rx="2.5" fill="${C.title}" opacity="0.45"/>`
       : `
-        <text x="${width / 2}" y="117" font-family="${FONT}" font-size="25" font-weight="850" text-anchor="middle" fill="${C.ink}">COLLECTING ${sample}/${MIN_SAMPLE}</text>
-        <text x="${width / 2}" y="140" font-family="${FONT}" font-size="11" font-weight="700" text-anchor="middle" fill="${C.muted}" letter-spacing="0.8">HABIT SNAPSHOT UNLOCKS AT ${MIN_SAMPLE} PROMPTS</text>
-        <rect x="92" y="160" width="${width - 184}" height="7" rx="3.5" fill="${C.bg2}" opacity="0.75"/>
-        <rect x="92" y="160" width="${((width - 184) * progress).toFixed(1)}" height="7" rx="3.5" fill="${C.intel}"/>`;
-    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits ${unavailable ? "temporarily unavailable" : "collecting"}">
+        <rect x="92" y="174" width="${width - 184}" height="7" rx="3.5" fill="${C.bg2}" opacity="0.75"/>
+        <rect x="92" y="174" width="${((width - 184) * progress).toFixed(1)}" height="7" rx="3.5" fill="${C.intel}"/>`;
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} promptkarma badge ${unavailable ? "temporarily unavailable" : "waiting for sample"}">
   <defs>
     <linearGradient id="cbg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${C.bg1}"/>
@@ -136,17 +139,15 @@ function renderCollectingCard(input: CardInput, width: number, height: number): 
   <rect x="20" y="20" width="34" height="34" rx="10" fill="url(#cmark)"/>
   <path d="M30 44V30h8.2c4.4 0 7.2 2.3 7.2 6s-2.8 6-7.2 6H34v2zM34 34v4h4c2 0 3-.7 3-2s-1-2-3-2z" fill="${C.bg2}"/>
   <text x="66" y="35" font-family="${FONT}" font-size="15" font-weight="850" fill="${C.ink}" letter-spacing="0.5">PROMPTKARMA</text>
-  <text x="66" y="52" font-family="${FONT}" font-size="10.5" font-weight="700" fill="${C.muted}" letter-spacing="1.05">PERSONAL PROMPT SIGNALS · HEURISTIC</text>
+  <text x="66" y="52" font-family="${FONT}" font-size="10.5" font-weight="700" fill="${C.muted}" letter-spacing="1.05">KARMA × INTELLECT · LOCAL HEURISTIC</text>
   <text x="${width - 24}" y="36" font-family="${FONT}" font-size="14" font-weight="750" text-anchor="end" fill="${C.ink}">@${esc(displayUsername(username))}</text>
   <text x="${width - 24}" y="53" font-family="${FONT}" font-size="10.5" text-anchor="end" fill="${C.muted}">${esc(sourceLabel(input.provenance))}</text>
 
-  <rect x="20" y="72" width="${width - 40}" height="125" rx="14" fill="${C.track}" opacity="0.42"/>
+  <rect x="20" y="72" width="${width - 40}" height="169" rx="14" fill="${C.track}" opacity="0.42"/>
+  <text x="${width / 2}" y="123" font-family="${FONT}" font-size="24" font-weight="850" text-anchor="middle" fill="${C.ink}">${title}</text>
+  <text x="${width / 2}" y="151" font-family="${FONT}" font-size="11" font-weight="700" text-anchor="middle" fill="${C.muted}" letter-spacing="0.8">${detail}</text>
   ${status}
-
-  <rect x="20" y="210" width="${width - 40}" height="47" rx="12" fill="${C.track}" opacity="0.72"/>
-  <rect x="20" y="210" width="5" height="47" rx="2.5" fill="${C.title}"/>
-  <text x="39" y="229" font-family="${FONT}" font-size="9.5" font-weight="850" letter-spacing="1.25" fill="${C.title}">NEXT MOVE</text>
-  <text x="39" y="247" font-family="${FONT}" font-size="13" font-weight="750" fill="${C.ink}">${nextMove}</text>
+  <text x="${width / 2}" y="215" font-family="${FONT}" font-size="10" font-weight="750" text-anchor="middle" fill="${C.muted}" letter-spacing="1">${sampleStatus}</text>
   <text x="20" y="${height - 14}" font-family="${FONT}" font-size="10.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
 </svg>`;
   }
@@ -154,9 +155,9 @@ function renderCollectingCard(input: CardInput, width: number, height: number): 
   const progressY = height / 2 + 4;
   const footerSize = width < 600 ? 9 : 11;
   const unavailable = input.provenance === "unavailable";
-  const statusTitle = unavailable ? "DATA UNAVAILABLE" : `COLLECTING ${sample}/${MIN_SAMPLE}`;
-  const statusDetail = unavailable ? "TRY THIS CARD AGAIN IN A MOMENT" : `THE SUMMARY UNLOCKS AT ${MIN_SAMPLE} PROMPTS`;
-  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits ${unavailable ? "temporarily unavailable" : "collecting"}">
+  const statusTitle = unavailable ? "DATA UNAVAILABLE" : sample === 0 ? "NO PUBLIC BADGE" : `SAMPLE ${sample}/${MIN_SAMPLE}`;
+  const statusDetail = unavailable ? "STORED SNAPSHOT COULD NOT BE LOADED" : `BADGE REQUIRES ${MIN_SAMPLE} PROMPTS`;
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} promptkarma badge ${unavailable ? "temporarily unavailable" : "waiting for sample"}">
   <defs>
     <linearGradient id="cbg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${C.bg1}"/>
@@ -165,7 +166,7 @@ function renderCollectingCard(input: CardInput, width: number, height: number): 
   </defs>
   <rect width="${width}" height="${height}" rx="14" fill="url(#cbg)"/>
   <rect x="0.75" y="0.75" width="${width - 1.5}" height="${height - 1.5}" rx="13" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
-  <text x="24" y="34" font-family="${FONT}" font-size="16" font-weight="800" fill="${C.title}">PROMPT HABITS</text>
+  <text x="24" y="34" font-family="${FONT}" font-size="16" font-weight="800" fill="${C.title}">PROMPTKARMA</text>
   <text x="${width - 24}" y="34" font-family="${FONT}" font-size="13" text-anchor="end" fill="${C.muted}">@${esc(displayUsername(username, 18))}</text>
   <text x="${center}" y="${progressY}" font-family="${FONT}" font-size="25" font-weight="800" text-anchor="middle" fill="${C.ink}">${statusTitle}</text>
   <text x="${center}" y="${progressY + 27}" font-family="${FONT}" font-size="12" text-anchor="middle" fill="${C.muted}">${statusDetail}</text>
@@ -186,8 +187,8 @@ export function renderCard(input: CardInput): string {
 
   const angel =
     input.profanityPct != null
-      ? clamp(100 - input.profanityPct, 0, 100)
-      : clamp(100 - m.profanityRate, 0, 100);
+      ? clamp(100 - input.profanityPct * 5, 0, 100)
+      : clamp(100 - m.profanityRate * 5, 0, 100);
   const smart =
     input.competencePct != null ? clamp(input.competencePct, 0, 100) : clamp(m.competence, 0, 100);
   const angelPct = Math.round(angel);
@@ -215,7 +216,7 @@ export function renderCard(input: CardInput): string {
     : `<circle cx="${avaCx}" cy="${avaCy}" r="${avaR}" fill="url(#avaG)"/>
        <text x="${avaCx}" y="${avaCy + 20}" font-family="${FONT}" font-size="52" font-weight="800" fill="${C.ink}" text-anchor="middle">${esc((username[0] ?? "?").toUpperCase())}</text>`;
 
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits legacy card">
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} promptkarma card">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${C.bg1}"/>
@@ -235,105 +236,18 @@ export function renderCard(input: CardInput): string {
 
   ${avatar}
 
-  <text x="${trackX}" y="46" font-family="${FONT}" font-size="19" font-weight="800" fill="${C.title}" letter-spacing="-0.2">prompt habits</text>
+  <text x="${trackX}" y="46" font-family="${FONT}" font-size="19" font-weight="800" fill="${C.title}" letter-spacing="-0.2">promptkarma</text>
   <text x="${trackX + trackW}" y="46" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="end">@${esc(displayUsername(username, 18))}</text>
 
-  ${gauge(y1, "no-swear prompts", `${angelPct}%`, karmaKnob, C.karma)}
-  ${gauge(y2, "structure signal", `${smartPct}%`, smartKnob, C.intel)}
+  ${gauge(y1, "KARMA", `${angelPct}%`, karmaKnob, C.karma)}
+  ${gauge(y2, "INTELLECT", `${smartPct}%`, smartKnob, C.intel)}
 
   <text x="${trackX}" y="184" font-family="${FONT}" font-size="9.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
 </svg>`;
 }
 
-/**
- * 관찰값과 다음 행동을 바로 읽을 수 있는 기본 공유 카드.
- * 기존 다포체 카드는 시각 실험으로 보존하고, 이 카드는 과한 능력 판정을 하지 않는다.
- */
-export function renderFeedbackCard(input: CardInput): string {
-  const { username, metrics: m } = input;
-  if (!m.eligible) return renderCollectingCard(input, 700, 300);
-  const W = 700, H = 300, R = 16;
-  const base = THEMES[input.theme ?? "black"] ?? THEMES.black;
-  const overrides = Object.fromEntries(
-    Object.entries(input.colors ?? {}).filter(([, v]) => v != null && v !== "")
-  );
-  const C: Theme = { ...base, ...overrides } as Theme;
-  const structure = clamp(m.competence, 0, 100);
-  const swearPrompts = clamp(m.profanityRate, 0, 100);
-  const feedback = buildFeedback(m);
-  const ringR = 42;
-  const ringLength = 2 * Math.PI * ringR;
-  const ringValue = ringLength * structure / 100;
-  const habitBar = (x: number, y: number, label: string, value: number, color: string) => {
-    const safeValue = clamp(value, 0, 100);
-    return `
-      <text x="${x}" y="${y}" font-family="${FONT}" font-size="10.5" font-weight="750" letter-spacing="0.9" fill="${C.muted}">${label}</text>
-      <text x="${x + 164}" y="${y}" font-family="${FONT}" font-size="12" font-weight="800" text-anchor="end" fill="${C.ink}">${safeValue.toFixed(1)}%</text>
-      <rect x="${x}" y="${y + 10}" width="164" height="5" rx="2.5" fill="${C.track}"/>
-      <rect x="${x}" y="${y + 10}" width="${(164 * safeValue / 100).toFixed(1)}" height="5" rx="2.5" fill="${color}" opacity="0.82"/>`;
-  };
-  const detail = m.habits
-    ? `
-      <text x="286" y="96" font-family="${FONT}" font-size="10.5" font-weight="800" letter-spacing="1.2" fill="${C.title}">SIGNAL MIX</text>
-      ${habitBar(286, 121, "CONTEXT", m.habits.contextRate, C.intel)}
-      ${habitBar(488, 121, "CONSTRAINTS", m.habits.constraintRate, C.karma)}
-      ${habitBar(286, 170, "STEPS", m.habits.stepRate, C.title)}
-      ${habitBar(488, 170, "HANDOFF / NO RULE", m.habits.outsourceRate, C.karma)}`
-    : `
-      <text x="286" y="105" font-family="${FONT}" font-size="10.5" font-weight="800" letter-spacing="1.2" fill="${C.title}">SIGNAL MIX</text>
-      <text x="286" y="136" font-family="${FONT}" font-size="17" font-weight="800" fill="${C.ink}">DETAIL VIEW NEEDS A FRESH SCAN</text>
-      <text x="286" y="159" font-family="${FONT}" font-size="11.5" fill="${C.muted}">CONTEXT · CONSTRAINTS · STEPS · DELEGATION</text>
-      <rect x="286" y="178" width="366" height="5" rx="2.5" fill="${C.track}"/>
-      <rect x="286" y="178" width="88" height="5" rx="2.5" fill="${C.title}" opacity="0.3"/>`;
-
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits feedback">
-  <defs>
-    <linearGradient id="fbg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${C.bg1}"/>
-      <stop offset="1" stop-color="${C.bg2}"/>
-    </linearGradient>
-    <linearGradient id="fmark" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${C.title}"/>
-      <stop offset="1" stop-color="${C.intel}"/>
-    </linearGradient>
-    <filter id="fglow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <rect width="${W}" height="${H}" rx="${R}" fill="url(#fbg)"/>
-  <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="${R - 1}" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
-  <rect x="20" y="20" width="34" height="34" rx="10" fill="url(#fmark)"${C.glow ? ' filter="url(#fglow)"' : ""}/>
-  <path d="M30 44V30h8.2c4.4 0 7.2 2.3 7.2 6s-2.8 6-7.2 6H34v2zM34 34v4h4c2 0 3-.7 3-2s-1-2-3-2z" fill="${C.bg2}"/>
-  <text x="66" y="35" font-family="${FONT}" font-size="15" font-weight="850" fill="${C.ink}" letter-spacing="0.5">PROMPTKARMA</text>
-  <text x="66" y="52" font-family="${FONT}" font-size="10.5" font-weight="700" fill="${C.muted}" letter-spacing="1.05">PERSONAL PROMPT SIGNALS · HEURISTIC</text>
-  <text x="676" y="36" font-family="${FONT}" font-size="14" font-weight="750" text-anchor="end" fill="${C.ink}">@${esc(displayUsername(username))}</text>
-  <text x="676" y="53" font-family="${FONT}" font-size="10.5" text-anchor="end" fill="${C.muted}">${esc(sourceLabel(input.provenance))}</text>
-
-  <rect x="20" y="72" width="236" height="132" rx="14" fill="${C.track}" opacity="0.45"/>
-  <circle cx="88" cy="137" r="${ringR}" fill="none" stroke="${C.track}" stroke-width="8"/>
-  <circle cx="88" cy="137" r="${ringR}" fill="none" stroke="${C.intel}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${ringValue.toFixed(1)} ${ringLength.toFixed(1)}" transform="rotate(-90 88 137)"${C.glow ? ' filter="url(#fglow)"' : ""}/>
-  <text x="88" y="135" font-family="${FONT}" font-size="23" font-weight="850" text-anchor="middle" fill="${C.ink}">${structure.toFixed(1)}</text>
-  <text x="88" y="152" font-family="${FONT}" font-size="9.5" font-weight="750" text-anchor="middle" fill="${C.muted}">PERCENT</text>
-  <text x="148" y="112" font-family="${FONT}" font-size="10.5" font-weight="800" letter-spacing="1" fill="${C.muted}">STRUCTURE</text>
-  <text x="148" y="136" font-family="${FONT}" font-size="14" font-weight="800" fill="${C.ink}">OBSERVED</text>
-  <text x="148" y="153" font-family="${FONT}" font-size="14" font-weight="800" fill="${C.ink}">MARKERS</text>
-  <text x="148" y="176" font-family="${FONT}" font-size="9.5" font-weight="750" letter-spacing="0.75" fill="${C.muted}">NO-SWEAR</text>
-  <text x="148" y="195" font-family="${FONT}" font-size="15" font-weight="850" fill="${C.karma}">${(100 - swearPrompts).toFixed(1)}%</text>
-
-  <rect x="270" y="72" width="410" height="132" rx="14" fill="${C.track}" opacity="0.28"/>
-  ${detail}
-
-  <rect x="20" y="216" width="660" height="47" rx="12" fill="${C.track}" opacity="0.72"/>
-  <rect x="20" y="216" width="5" height="47" rx="2.5" fill="${C.title}"/>
-  <text x="39" y="235" font-family="${FONT}" font-size="9.5" font-weight="850" letter-spacing="1.25" fill="${C.title}">NEXT MOVE</text>
-  <text x="39" y="253" font-family="${FONT}" font-size="13" font-weight="750" fill="${C.ink}" letter-spacing="0.2">${esc(feedback.cardTip)}</text>
-  <text x="20" y="286" font-family="${FONT}" font-size="10.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
-</svg>`;
-}
-
 // ============================================================================
-// PROMPT POLYTOPE — 다면체 와이어프레임. 복잡도=구조 신호, 오라색=말투 참고.
+// PROMPT POLYTOPE — 다면체 와이어프레임. 복잡도=INTELLECT, 오라색=KARMA.
 // ============================================================================
 const PHI = (1 + Math.sqrt(5)) / 2;
 const MONO = "'Courier New','SFMono-Regular',Consolas,monospace";
@@ -434,13 +348,13 @@ const POLY_LEVELS: (() => number[][])[] = [cell3, cell5, cell16, cell8, cell24, 
  * 남이 submit해도 내 티어는 안 바뀌고 CLI가 로컬에서 티어를 바로 낸다.
  * 잠정값: 현재 표본 2건뿐이라 감으로 잡았다. 데이터가 쌓이면 실제 분포의 분위수로 재조정하고 버전을 올린다.
  */
-const STRUCTURE_CUTS = [18, 34, 46, 56, 68, 84];
-/** 도형 번호. 구조 신호와 **같은 level**로 고르므로 문구와 도형이 어긋날 수 없다. */
-const LEVEL_WORDS = ["SHAPE 1", "SHAPE 2", "SHAPE 3", "SHAPE 4", "SHAPE 5", "SHAPE 6", "SHAPE 7"];
-// 세 상수의 길이는 묶여 있다: level은 0..STRUCTURE_CUTS.length라 도형·라벨 배열이 그만큼 있어야 한다.
+const INTEL_CUTS = [18, 34, 46, 56, 68, 84];
+/** 능력 축 라벨. 도형과 같은 level로 고르므로 문구와 도형이 어긋날 수 없다. */
+const LEVEL_WORDS = ["CHAOTIC", "SCATTERED", "LOOSE", "DELIBERATE", "STRUCTURED", "SYSTEMATIC", "EXACTING"];
+// 세 상수의 길이는 묶여 있다: level은 0..INTEL_CUTS.length라 도형·라벨 배열이 그만큼 있어야 한다.
 // 컷 재조정 시 한쪽만 늘리면 POLY_LEVELS[level]이 undefined가 되므로 로드 시점에 막는다.
-if (POLY_LEVELS.length !== STRUCTURE_CUTS.length + 1 || POLY_LEVELS.length !== LEVEL_WORDS.length)
-  throw new Error("POLY_LEVELS·STRUCTURE_CUTS·LEVEL_WORDS 길이 불일치 (티어 = 컷 + 1)");
+if (POLY_LEVELS.length !== INTEL_CUTS.length + 1 || POLY_LEVELS.length !== LEVEL_WORDS.length)
+  throw new Error("POLY_LEVELS·INTEL_CUTS·LEVEL_WORDS 길이 불일치 (티어 = 컷 + 1)");
 
 export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
@@ -546,15 +460,15 @@ export function renderPolytope(input: CardInput): string {
   // (NaN이면 Math.round도 NaN이고, clamp 두 겹으로도 NaN은 안 걸러진다 → POLY_LEVELS[NaN]).
   const intel = clamp(Math.round(m.competence) || 0, 0, 100);
   const glow = m.karma === "cyan";      // 칭찬>욕이면 발광(발산 색과 별개 축이라 붉은 카드도 발광할 수 있다)
-  const angel = Math.round(100 - clamp(m.profanityRate, 0, 100));
+  const angel = Math.round(clamp(100 - m.profanityRate * 5, 0, 100));
 
-  const level = STRUCTURE_CUTS.reduce((n, c) => n + (intel >= c ? 1 : 0), 0);   // 0..6 (7티어)
+  const level = INTEL_CUTS.reduce((n, c) => n + (intel >= c ? 1 : 0), 0);   // 0..6 (7티어)
   const { V, E, sweep, is4 } = geometry(level);
   const heavy = V.length > 60;          // 600·120-cell: 선분 개별 애니메이트하면 ~1MB → 단일 path 모프
   const cx = 210, cy = 156, scale = 100;
   // 등각회전은 |w|가 클수록 (x,y,z)가 작아져 원근 확대와 상쇄된다 → 3D 시절과 같은 배율로 크기가 맞는다.
   const D4 = 2.6;                        // 4D→3D 원근 거리(안팎 반전 강도)
-  // 말투 색은 no-swear 값에 연동해 숫자와 색이 일치한다. 칭찬>욕이면 발광 코어.
+  // 선악 색은 karma 값에 연동해 숫자와 색이 일치한다. 칭찬>욕이면 발광 코어.
   const col = karmaColors(angel / 100, glow);
 
   // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 4D 회전을 못 한다).
@@ -622,7 +536,7 @@ export function renderPolytope(input: CardInput): string {
   const corners = [plus(40, 44), plus(W - 40, 44), plus(40, H - 40), plus(W - 40, H - 40)].join("");
 
   const iWord = LEVEL_WORDS[level]!;
-  const kWord = "LEXICON";
+  const kWord = ["CAUSTIC", "GUARDED", "TEMPERATE", "CIVIL", "AFFIRMING"][Math.min(4, Math.floor(angel / 20))]!;
   // 데이터 패널: 라벨(왼) · 큰 숫자 · 단어(오른). 겹치지 않게 폭·간격 확보.
   const panel = (y: number, label: string, val: string, word: string) => {
     const x = 422, w = 262, h = 58;
@@ -635,7 +549,7 @@ export function renderPolytope(input: CardInput): string {
       <text x="${x + w - 16}" y="${y + 35}" font-family="${MONO}" font-size="11" letter-spacing="1" fill="#8a8a98" text-anchor="end">${word}</text>`;
   };
 
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits polytope experiment">
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt polytope">
   <defs>
     <radialGradient id="pbg" cx="40%" cy="45%" r="78%"><stop offset="0" stop-color="#141419"/><stop offset="1" stop-color="#08080b"/></radialGradient>
     <filter id="pvg" x="-300%" y="-300%" width="700%" height="700%"><feGaussianBlur stdDeviation="1.6"/></filter>
@@ -646,12 +560,12 @@ export function renderPolytope(input: CardInput): string {
   <rect width="${W}" height="${H}" rx="14" fill="url(#pgrid)"/>
   <rect x="0.6" y="0.6" width="${W - 1.2}" height="${H - 1.2}" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
   ${corners}
-  <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(displayUsername(username, 24).toUpperCase())} / POLYTOPE EXPERIMENT</text>
+  <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(displayUsername(username, 24).toUpperCase())} / PROMPT POLYTOPE</text>
   <!-- 4D 모프(위에서 구운 프레임)는 그대로 두고, 글리프 전체를 중심 기준 1바퀴/분(60초)으로
        천천히 돌린다. 베이크 좌표가 아니라 transform 회전이라 각도 보간으로 매끄럽고 용량도 0. -->
   <g><animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 ${cx} ${cy}" to="360 ${cx} ${cy}" dur="60s" repeatCount="indefinite"/>${edges}${core}${verts}</g>
-  ${panel(116, "STRUCTURE", String(intel).padStart(2, "0"), iWord)}
-  ${panel(190, "NO-SWEAR", String(angel).padStart(2, "0"), kWord)}
+  ${panel(116, "INTELLECT", String(intel).padStart(2, "0"), iWord)}
+  ${panel(190, "KARMA", String(angel).padStart(2, "0"), kWord)}
   <text x="40" y="282" font-family="${MONO}" font-size="10" fill="#777784">${esc(cardMetadata(input))}</text>
 </svg>`;
 }

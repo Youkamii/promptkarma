@@ -1,6 +1,6 @@
 /**
  * POST /api/submit — 로컬에서 계산한 지표를 저장(UPSERT). username당 최신 하나.
- * body에는 관찰 비율, 세부 습관, 스캔 시각과 규칙 버전만 받는다. 원문은 받지 않는다.
+ * body에는 두 축의 집계값, 스캔 시각과 규칙 버전만 받는다. 원문은 받지 않는다.
  * 인증이 없으므로 공개 카드는 SELF-REPORTED로 표시한다.
  */
 import { upsertCard, ensureSchema, type CardWrite } from "../src/db.js";
@@ -12,12 +12,6 @@ function num(v: unknown): number {
 }
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
-}
-
-function optionalRate(v: unknown): number | null {
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? clamp(n, 0, 100) : null;
 }
 
 function positiveInt(v: unknown): number | null {
@@ -81,10 +75,6 @@ export async function handleSubmit(
       promptsPerSwear: profanePrompts > 0 ? prompts / profanePrompts : null,
       praise,
       karma: karmaMode(profanePrompts, praisePrompts, profanity),
-      contextRate: optionalRate(b.contextRate),
-      constraintRate: optionalRate(b.constraintRate),
-      stepRate: optionalRate(b.stepRate),
-      outsourceRate: optionalRate(b.outsourceRate),
       scannedAt: scanTime(b.scannedAt),
       filterVersion: positiveInt(b.filterVersion),
       metricVersion: positiveInt(b.metricVersion),

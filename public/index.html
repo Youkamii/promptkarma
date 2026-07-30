@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Claude Code 프롬프트 습관을 로컬에서 살펴보고, 다음 행동과 README 배지로 남기는 promptkarma">
+<meta name="description" content="Claude Code 프롬프트에서 AI를 대하는 태도와 지시 구조를 읽어 SVG 프로필 배지로 만드는 promptkarma">
 <meta name="theme-color" content="#0a0910">
-<meta property="og:title" content="promptkarma — Personal prompt signals">
-<meta property="og:description" content="프롬프트 습관을 로컬에서 살펴보고, 다음 요청에서 바꿔볼 한 가지를 카드로 남기세요.">
+<meta property="og:title" content="promptkarma — Karma × Intellect badge">
+<meta property="og:description" content="말투는 색으로, 지시 구조는 움직이는 다포체로. 내 Claude Code 프롬프트를 프로필 배지로 만드세요.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://promptkarma.vercel.app">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g'%3E%3Cstop stop-color='%23c084fc'/%3E%3Cstop offset='1' stop-color='%235eead4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='%230d0c12'/%3E%3Cpath d='M18 45V18h15c9 0 15 5 15 13S42 44 33 44h-7v1zm8-19v10h7c5 0 7-2 7-5s-2-5-7-5z' fill='url(%23g)'/%3E%3C/svg%3E">
-<title>promptkarma — Personal prompt signals</title>
+<title>promptkarma — Karma × Intellect badge</title>
 <style>
   :root {
     color-scheme: dark;
@@ -27,6 +27,7 @@
     --shadow: 0 32px 100px rgba(0, 0, 0, .48);
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html { scroll-behavior: smooth; }
   body {
     margin: 0;
@@ -373,9 +374,9 @@
 <main>
   <section class="hero shell">
     <div class="hero-copy">
-      <div class="eyebrow">PERSONAL PROMPT SIGNALS</div>
-      <h1>프롬프트 습관을<em>보이는 기록으로.</em></h1>
-      <p class="lead">Claude Code 로그에서 맥락·조건·단계 같은 작성 신호를 로컬로 살펴봅니다. 점수로 줄 세우는 대신, 다음 요청에서 시험할 한 가지와 공유 가능한 스냅샷을 남깁니다.</p>
+      <div class="eyebrow">KARMA × INTELLECT</div>
+      <h1>내 프롬프트를,<em>나만의 배지로.</em></h1>
+      <p class="lead">Claude Code에서 AI에게 어떻게 말하고 지시했는지 로컬로 계산합니다. 말투는 색이 되고, 지시 구조는 움직이는 다포체가 되어 프로필에 남습니다.</p>
       <div class="hero-actions">
         <a class="button primary" href="#studio">내 배지 미리보기</a>
         <a class="button" href="#start">로컬 스캔 시작</a>
@@ -402,12 +403,11 @@
         <div class="control-row">
           <span class="control-label">CARD</span>
           <div class="segmented" id="style-controls" role="group" aria-label="카드 스타일">
-            <button type="button" data-style="coach" aria-pressed="true">Coach</button>
-            <button type="button" data-style="polytope" aria-pressed="false">Polytope</button>
+            <button type="button" data-style="polytope" aria-pressed="true">Polytope</button>
             <button type="button" data-style="classic" aria-pressed="false">Classic</button>
           </div>
         </div>
-        <div class="control-row">
+        <div class="control-row" id="theme-row" hidden>
           <span class="control-label">THEME</span>
           <div class="segmented" id="theme-controls" role="group" aria-label="카드 테마">
             <button type="button" data-theme="black" aria-pressed="true">Black</button>
@@ -418,16 +418,16 @@
         </div>
 
         <div class="studio-note">
-          <span id="studio-help">로그인 없이 꾸밀 수 있습니다. 공개 스캔이 없으면 COLLECTING 카드가 보입니다.</span>
+          <span id="studio-help">도형은 INTELLECT, 오라 색은 KARMA를 보여줍니다.</span>
           <span id="preview-status" role="status" aria-live="polite">미리보기 준비됨</span>
         </div>
         <div class="preview-stage">
-          <img id="badge-preview" src="/api/card?u=Youkamii&style=coach&theme=black" width="700" height="300" alt="Youkamii의 promptkarma 배지 미리보기">
+          <img id="badge-preview" src="/api/card?u=Youkamii&style=polytope" width="700" height="300" alt="Youkamii의 promptkarma 배지 미리보기">
         </div>
 
         <div class="studio-footer">
-          <code class="code-preview" id="markdown-preview">[![promptkarma](https://promptkarma.vercel.app/api/card?u=Youkamii&amp;style=coach&amp;theme=black)](...)</code>
-          <a class="button icon-button" id="open-svg" href="/api/card?u=Youkamii&style=coach&theme=black" target="_blank" rel="noreferrer">SVG 열기</a>
+          <code class="code-preview" id="markdown-preview">[![promptkarma](https://promptkarma.vercel.app/api/card?u=Youkamii&amp;style=polytope)](...)</code>
+          <a class="button icon-button" id="open-svg" href="/api/card?u=Youkamii&style=polytope" target="_blank" rel="noreferrer">SVG 열기</a>
           <button class="button primary icon-button" id="copy-markdown" type="button">README 코드 복사</button>
         </div>
         <div class="copy-state" id="copy-state" aria-live="polite"></div>
@@ -438,8 +438,8 @@
   <section class="section" id="how">
     <div class="shell">
       <div class="section-head">
-        <h2>한 번 보고 끝나는 점수보다,<br>다음 요청을 바꾸는 기록.</h2>
-        <p>promptkarma는 잘하고 못함을 판정하지 않습니다. 반복해서 쓰는 표현을 네 가지 신호로 나누고, 가장 먼저 시험해볼 행동 하나만 남깁니다. 배지는 그 시점의 스냅샷입니다.</p>
+        <h2>숫자 두 개가,<br>당신만의 도형이 됩니다.</h2>
+        <p>AI를 대하는 태도는 KARMA 색으로, 지시의 구조와 도구 활용은 INTELLECT 도형으로 바뀝니다. 설명표를 읽지 않아도 모양과 색만으로 서로 다른 배지가 됩니다.</p>
       </div>
       <div class="steps">
         <article class="step">
@@ -448,14 +448,14 @@
           <p>사람이 쓴 프롬프트만 골라 집계하고 원문은 버립니다. 도구 출력, 자동 입력, 긴 붙여넣기는 제외합니다.</p>
         </article>
         <article class="step">
-          <span class="step-no">02 / NOTICE</span>
-          <h3>신호를 따로 보기</h3>
-          <p>맥락, 조건, 단계, 기준 없는 통째 위임을 나눠 보여줍니다. 규칙에 잡힌 예시도 터미널에서 확인할 수 있습니다.</p>
+          <span class="step-no">02 / SHAPE</span>
+          <h3>도형과 색으로 바꾸기</h3>
+          <p>구조화 지수는 일곱 단계 다포체가 되고, 욕설 발생률은 적색에서 청록까지 이어지는 오라가 됩니다.</p>
         </article>
         <article class="step">
-          <span class="step-no">03 / TRY NEXT</span>
-          <h3>한 번에 하나만</h3>
-          <p>낮게 관찰된 신호를 부족함으로 부르지 않습니다. 다음 요청에서 시험할 작은 변화 하나로 바꿉니다.</p>
+          <span class="step-no">03 / SHARE</span>
+          <h3>프로필에 붙이기</h3>
+          <p>README 코드를 한 번 붙여두면 같은 주소가 유지됩니다. 다시 스캔하고 제출할 때 배지만 갱신됩니다.</p>
         </article>
       </div>
     </div>
@@ -471,18 +471,18 @@
         <div class="terminal">
           <div class="terminal-title">TERMINAL / QUICK START</div>
           <pre><span class="prompt">$</span> npx --yes promptkarma scan
-<span class="prompt">$</span> npx --yes promptkarma scan --explain
+<span class="prompt">$</span> npx --yes promptkarma card me
 
 <span class="dim"># 공개 배지가 필요할 때만</span>
 <span class="prompt">$</span> npx --yes promptkarma submit &lt;github-username&gt;</pre>
         </div>
         <aside class="truth">
           <b>HONEST BY DESIGN</b>
-          <h3>자격증처럼 꾸미지 않습니다.</h3>
-          <p>공개값은 아직 GitHub 계정 소유권과 로그 진위를 확인하지 못한 자기신고 집계입니다. 카드에도 그 상태와 표본 수, 규칙 버전을 그대로 표시합니다.</p>
+          <h3>배지는 배지답게, 출처는 분명하게.</h3>
+          <p>공개값은 아직 GitHub 계정 소유권과 로그 진위를 확인하지 못한 자기신고 집계입니다. 배지에도 그 상태와 표본 수, 규칙 버전을 그대로 표시합니다.</p>
           <ul>
             <li>30개 미만이면 결과 대신 수집 상태 표시</li>
-            <li>예전 데이터에는 없는 세부값을 만들지 않음</li>
+            <li>표본 수·규칙 버전·값의 출처를 카드에 표시</li>
             <li>원문 대신 집계 숫자만 선택해서 공유</li>
           </ul>
         </aside>
@@ -492,8 +492,8 @@
 </main>
 
 <footer class="shell">
-  <span>promptkarma · MIT · Local-first prompt habit coach</span>
-  <a href="https://github.com/Youkamii/promptkarma/issues">피드백 남기기 ↗</a>
+  <span>promptkarma · MIT · Local-first prompt identity badge</span>
+  <a href="https://github.com/Youkamii/promptkarma/issues">의견 남기기 ↗</a>
 </footer>
 
 <script>
@@ -507,10 +507,11 @@
     const copyState = document.querySelector("#copy-state");
     const previewStatus = document.querySelector("#preview-status");
     const studioHelp = document.querySelector("#studio-help");
+    const themeRow = document.querySelector("#theme-row");
     const styleButtons = [...document.querySelectorAll("[data-style]")];
     const themeButtons = [...document.querySelectorAll("[data-theme]")];
     let username = "Youkamii";
-    let style = "coach";
+    let style = "polytope";
     let theme = "black";
     let timer;
 
@@ -544,8 +545,9 @@
       copyButton.disabled = !validUsername(usernameInput.value);
       previewStatus.textContent = "미리보기 불러오는 중";
       studioHelp.textContent = style === "polytope"
-        ? "Polytope는 현재 전용 어두운 테마를 씁니다."
-        : "로그인 없이 꾸밀 수 있습니다. 공개 스캔이 없으면 COLLECTING 카드가 보입니다.";
+        ? "도형은 INTELLECT, 오라 색은 KARMA를 보여줍니다."
+        : "Classic은 KARMA와 INTELLECT를 두 줄 게이지로 보여줍니다.";
+      themeRow.hidden = style === "polytope";
       styleButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.style === style)));
       themeButtons.forEach((button) => {
         button.setAttribute("aria-pressed", String(button.dataset.theme === theme));

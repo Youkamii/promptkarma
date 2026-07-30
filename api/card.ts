@@ -4,9 +4,9 @@
  * 지표 우선순위: DB(submit한 값) → 쿼리 f/d/p 폴백 → 측정 중.
  * 외형: theme 프리셋 + 색 개별 오버라이드(bg_color, text_color, karma_color, ...).
  */
-import { renderCard, renderFeedbackCard, renderPolytope } from "../src/card.js";
+import { renderCard, renderPolytope } from "../src/card.js";
 import type { Theme } from "../src/card.js";
-import { METRIC_VERSION, MIN_SAMPLE, type Metrics, type KarmaMode } from "../src/metrics.js";
+import { MIN_SAMPLE, type Metrics, type KarmaMode } from "../src/metrics.js";
 import { getCard, type CardRow } from "../src/db.js";
 
 function asKarma(v: unknown): KarmaMode {
@@ -56,26 +56,12 @@ export async function handleCard(
   try {
     const row = await loadCard(username);
     if (row) {
-      const hasHabits = [
-        row.contextRate,
-        row.constraintRate,
-        row.stepRate,
-        row.outsourceRate,
-      ].every((rate) => rate != null && Number.isFinite(Number(rate)));
       metrics = {
-        metricVersion: row.metricVersion ?? (hasHabits ? METRIC_VERSION : 1),
+        metricVersion: row.metricVersion ?? 1,
         prompts: row.prompts, slash: 0,
         profanityRate: row.profanity, competence: row.competence,
         promptsPerSwear: row.promptsPerSwear, praiseRate: row.praise ?? 0,
         karma: asKarma(row.karma), eligible: row.prompts >= MIN_SAMPLE,
-        ...(hasHabits ? {
-          habits: {
-            contextRate: Number(row.contextRate),
-            constraintRate: Number(row.constraintRate),
-            stepRate: Number(row.stepRate),
-            outsourceRate: Number(row.outsourceRate),
-          },
-        } : {}),
       };
       provenance = "self-reported";
       scannedAt = row.scannedAt;
@@ -125,11 +111,9 @@ export async function handleCard(
     scannedAt,
     filterVersion,
   };
-  const svg = style === "polytope"
-    ? renderPolytope(input)
-    : style === "classic"
-      ? renderCard(input)
-      : renderFeedbackCard(input);
+  const svg = style === "classic"
+    ? renderCard(input)
+    : renderPolytope(input);
   res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
   res.setHeader(
     "Cache-Control",

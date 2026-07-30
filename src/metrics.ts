@@ -4,33 +4,25 @@
  */
 import type { PromptRecord } from "./parser.js";
 import { countProfanity, hasPraise } from "./lexicon.js";
-import { analyzeSignals } from "./signals.js";
+import { isStructured } from "./signals.js";
 
 /** 이 미만이면 요약 대신 "측정 중"으로 표시한다. */
 export const MIN_SAMPLE = 30;
-/** 공개 카드와 로컬 보고서에 표시하는 휴리스틱 규칙 버전. */
-export const METRIC_VERSION = 2;
+/** 공개 카드와 로컬 보고서에 표시하는 지표 규칙 버전. */
+export const METRIC_VERSION = 3;
 
 /** 서버로 보내는 것은 이 숫자들뿐. 원문은 절대 나가지 않는다. */
 export interface Counters {
   prompts: number;        // 붙여넣기·슬래시 제외한 순수 프롬프트 수 (F 분모)
-  slash: number;          // 슬래시커맨드 호출 수 (참고값, 구조 신호에는 넣지 않음)
+  slash: number;          // 슬래시커맨드 호출 수 (도구 활용 신호)
   profanePrompts: number; // 욕이 하나라도 든 프롬프트 수 (F 분자)
   profanityHits: number;  // 총 욕설 히트 (표현용)
   praisePrompts: number;  // 칭찬이 든 프롬프트 수 (karma 하늘색 판정)
-  structured: number;     // 구조 마커가 든 프롬프트 수
-  context: number;        // 파일·코드·링크로 작업 맥락을 준 프롬프트 수
-  constraints: number;    // 조건·요구사항·기준을 적은 프롬프트 수
-  steps: number;          // 두 항목 이상의 목록으로 나눈 프롬프트 수
-  outsourced: number;     // 결정을 통째로 넘기는 표현이 든 프롬프트 수
+  structured: number;     // 구조 마커가 든 프롬프트 수 (능력 축)
 }
 
 export function emptyCounters(): Counters {
-  return {
-    prompts: 0, slash: 0,
-    profanePrompts: 0, profanityHits: 0, praisePrompts: 0,
-    structured: 0, context: 0, constraints: 0, steps: 0, outsourced: 0,
-  };
+  return { prompts: 0, slash: 0, profanePrompts: 0, profanityHits: 0, praisePrompts: 0, structured: 0 };
 }
 
 /** 레코드 하나를 카운터에 반영. */
@@ -40,12 +32,7 @@ export function accumulate(c: Counters, rec: PromptRecord): void {
     return;
   }
   c.prompts++;
-  const signals = analyzeSignals(rec.text);
-  if (signals.context || signals.constraints || signals.steps) c.structured++;
-  if (signals.context) c.context++;
-  if (signals.constraints) c.constraints++;
-  if (signals.steps) c.steps++;
-  if (signals.outsourced) c.outsourced++;
+  if (isStructured(rec.text)) c.structured++;
   if (hasPraise(rec.text)) c.praisePrompts++;
   const hits = countProfanity(rec.text);
   if (hits > 0) {
@@ -71,43 +58,28 @@ export interface Metrics {
   profanityRate: number;
   /** 몇 번 프롬프트당 한 번 사전에 일치하는가. 일치가 없으면 null. */
   promptsPerSwear: number | null;
-  /** 구조 신호(%). 맥락·조건·단계 마커가 관찰된 사람 프롬프트 비율. */
+  /** 능력 축(%). 구조 마커가 든 프롬프트와 슬래시커맨드의 비율. */
   competence: number;
   /** 칭찬이 든 프롬프트 비율(%). */
   praiseRate: number;
   /** karma 오라 색. */
   karma: KarmaMode;
-  /** 표본이 MIN_SAMPLE 이상이라 요약과 피드백을 보여줄 수 있는가. */
+  /** 표본이 MIN_SAMPLE 이상이라 배지를 보여줄 수 있는가. */
   eligible: boolean;
-  /** 로컬 코칭용 세부 습관. 이전 state·서버 행에는 없을 수 있다. */
-  habits?: HabitRates;
-}
-
-export interface HabitRates {
-  contextRate: number;
-  constraintRate: number;
-  stepRate: number;
-  outsourceRate: number;
 }
 
 export function finalize(c: Counters): Metrics {
+  const denom = c.prompts + c.slash;
   const profanityRate = c.prompts ? (100 * c.profanePrompts) / c.prompts : 0;
-  const rate = (count: number | undefined) => c.prompts ? (100 * (count ?? 0)) / c.prompts : 0;
   return {
     metricVersion: METRIC_VERSION,
     prompts: c.prompts,
     slash: c.slash,
     profanityRate,
     promptsPerSwear: c.profanePrompts ? c.prompts / c.profanePrompts : null,
-    competence: rate(c.structured),
+    competence: denom ? (100 * (c.structured + c.slash)) / denom : 0,
     praiseRate: c.prompts ? (100 * c.praisePrompts) / c.prompts : 0,
     karma: karmaMode(c.profanePrompts, c.praisePrompts, profanityRate),
     eligible: c.prompts >= MIN_SAMPLE,
-    habits: {
-      contextRate: rate(c.context),
-      constraintRate: rate(c.constraints),
-      stepRate: rate(c.steps),
-      outsourceRate: rate(c.outsourced),
-    },
   };
 }

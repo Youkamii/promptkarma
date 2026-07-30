@@ -6,12 +6,10 @@
  */
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { parseLine } from "./parser.js";
 import { FILTER_VERSION } from "./parser.js";
 import { emptyCounters, accumulate, finalize, type Counters, type Metrics } from "./metrics.js";
-import { countProfanity } from "./lexicon.js";
-import { analyzeSignals } from "./signals.js";
 
 /** Claude Code 세션 로그 위치. 크로스플랫폼(홈 기준). */
 export function claudeProjectsDir(): string {
@@ -36,35 +34,11 @@ export interface ScanResult {
   metrics: Metrics;
   filesScanned: number;
   duplicatesSkipped: number;
-  /** --explain에서만 메모리에 모으며 state.json에는 저장하지 않는다. */
-  examples?: ScanExample[];
 }
 
-export type ExampleSignal = "context" | "constraints" | "steps" | "outsourced" | "profanity";
-
-export interface ScanExample {
-  signal: ExampleSignal;
-  file: string;
-  line: number;
-  excerpt: string;
-}
-
-export interface ScanOptions {
-  explain?: boolean;
-  examplesPerSignal?: number;
-}
-
-function excerpt(text: string): string {
-  const oneLine = text.replace(/\s+/g, " ").trim();
-  return oneLine.length > 140 ? oneLine.slice(0, 139) + "…" : oneLine;
-}
-
-export function scan(root: string = claudeProjectsDir(), options: ScanOptions = {}): ScanResult {
+export function scan(root: string = claudeProjectsDir()): ScanResult {
   const counters = emptyCounters();
   const seen = new Set<string>();
-  const examples: ScanExample[] = [];
-  const exampleCounts = new Map<ExampleSignal, number>();
-  const exampleLimit = Math.max(1, Math.min(3, options.examplesPerSignal ?? 1));
   let duplicatesSkipped = 0;
 
   const files = listSessionFiles(root);
@@ -89,21 +63,6 @@ export function scan(root: string = claudeProjectsDir(), options: ScanOptions = 
         seen.add(rec.uuid);
       }
       accumulate(counters, rec);
-      if (options.explain && rec.kind === "prompt") {
-        const signals = analyzeSignals(rec.text);
-        const matched: ExampleSignal[] = [];
-        if (signals.context) matched.push("context");
-        if (signals.constraints) matched.push("constraints");
-        if (signals.steps) matched.push("steps");
-        if (signals.outsourced) matched.push("outsourced");
-        if (countProfanity(rec.text) > 0) matched.push("profanity");
-        for (const signal of matched) {
-          const count = exampleCounts.get(signal) ?? 0;
-          if (count >= exampleLimit) continue;
-          examples.push({ signal, file: relative(root, file), line: index + 1, excerpt: excerpt(rec.text) });
-          exampleCounts.set(signal, count + 1);
-        }
-      }
     }
   }
 
@@ -112,7 +71,6 @@ export function scan(root: string = claudeProjectsDir(), options: ScanOptions = 
     metrics: finalize(counters),
     filesScanned: files.length,
     duplicatesSkipped,
-    ...(options.explain ? { examples } : {}),
   };
 }
 
