@@ -4,10 +4,10 @@
  * 지표 우선순위: DB(submit한 값) → 쿼리 f/d/p 폴백 → 측정 중.
  * 외형: theme 프리셋 + 색 개별 오버라이드(bg_color, text_color, karma_color, ...).
  */
-import { renderCard, renderPolytope } from "../src/card.js";
+import { renderCard, renderFeedbackCard, renderPolytope } from "../src/card.js";
 import type { Theme } from "../src/card.js";
-import type { Metrics, KarmaMode } from "../src/metrics.js";
-import { getCard } from "../src/db.js";
+import { MIN_SAMPLE, type Metrics, type KarmaMode } from "../src/metrics.js";
+import { getCard, type CardRow } from "../src/db.js";
 
 function asKarma(v: unknown): KarmaMode {
   const s = String(v);
@@ -31,20 +31,52 @@ function first(v: unknown): string | undefined {
   return s || undefined;
 }
 
-export default async function handler(req: any, res: any): Promise<void> {
+function positiveInt(v: unknown): number | undefined {
+  const n = Number(Array.isArray(v) ? v[0] : v);
+  return Number.isInteger(n) && n > 0 && n <= 1_000_000 ? n : undefined;
+}
+
+type LoadCard = (username: string) => Promise<CardRow | null>;
+
+export async function handleCard(
+  req: any,
+  res: any,
+  loadCard: LoadCard = getCard,
+): Promise<void> {
   const q = req.query ?? {};
   const username = String(q.u ?? q.username ?? "you").slice(0, 39) || "you";
 
   let metrics: Metrics | null = null;
+  let provenance: "self-reported" | "unverified" = "unverified";
+  let scannedAt: string | null = null;
+  let filterVersion: number | undefined;
   try {
-    const row = await getCard(username);
+    const row = await loadCard(username);
     if (row) {
+      const hasHabits = [
+        row.contextRate,
+        row.constraintRate,
+        row.stepRate,
+        row.outsourceRate,
+      ].every((rate) => rate != null && Number.isFinite(Number(rate)));
       metrics = {
+        metricVersion: row.metricVersion ?? 1,
         prompts: row.prompts, slash: 0,
         profanityRate: row.profanity, competence: row.competence,
         promptsPerSwear: row.promptsPerSwear, praiseRate: row.praise ?? 0,
-        karma: asKarma(row.karma), eligible: row.prompts >= 30,
+        karma: asKarma(row.karma), eligible: row.prompts >= MIN_SAMPLE,
+        ...(hasHabits ? {
+          habits: {
+            contextRate: Number(row.contextRate),
+            constraintRate: Number(row.constraintRate),
+            stepRate: Number(row.stepRate),
+            outsourceRate: Number(row.outsourceRate),
+          },
+        } : {}),
       };
+      provenance = "self-reported";
+      scannedAt = row.scannedAt;
+      filterVersion = row.filterVersion ?? 1;
     }
   } catch { /* DB 장애 → 폴백 */ }
 
@@ -52,11 +84,13 @@ export default async function handler(req: any, res: any): Promise<void> {
     const prompts = Math.max(0, Math.floor(num(q.p)));
     const pps = num(q.pps);
     metrics = {
+      metricVersion: positiveInt(q.mv) ?? 1,
       prompts, slash: 0,
       profanityRate: clamp(num(q.f), 0, 100), competence: clamp(num(q.d), 0, 100),
       promptsPerSwear: pps > 0 ? pps : null, praiseRate: clamp(num(q.praise), 0, 100),
-      karma: asKarma(q.karma), eligible: prompts >= 30,
+      karma: asKarma(q.karma), eligible: prompts >= MIN_SAMPLE,
     };
+    filterVersion = positiveInt(q.fv) ?? 1;
   }
   if (!metrics) {
     metrics = { prompts: 0, slash: 0, profanityRate: 0, competence: 0, promptsPerSwear: null, praiseRate: 0, karma: "white", eligible: false };
@@ -75,10 +109,25 @@ export default async function handler(req: any, res: any): Promise<void> {
   const bo = color(q.border_color); if (bo) overrides.border = bo;
 
   const style = first(q.style);
+  const input = {
+    username,
+    metrics,
+    theme: first(q.theme),
+    colors: overrides,
+    provenance,
+    scannedAt,
+    filterVersion,
+  };
   const svg = style === "polytope"
-    ? renderPolytope({ username, metrics })
-    : renderCard({ username, metrics, theme: first(q.theme), colors: overrides });
+    ? renderPolytope(input)
+    : style === "feedback"
+      ? renderFeedbackCard(input)
+      : renderCard(input);
   res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=300");
   res.status(200).send(svg);
+}
+
+export default async function handler(req: any, res: any): Promise<void> {
+  return handleCard(req, res);
 }

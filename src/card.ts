@@ -1,12 +1,13 @@
 /**
  * 지표 → SVG 카드. 가로형 배지(README 임베드용).
- * 왼쪽 아바타 + 오른쪽 두 수평 게이지(karma / intelligence).
+ * 왼쪽 아바타 + 오른쪽 두 수평 게이지(말투 사전 / 구조 신호).
  *
  * 테마 프리셋 + 색 개별 오버라이드 지원(github-readme-stats 방식).
  * GitHub README <img>는 CSS·JS·외부 리소스 차단 → 스타일 전부 인라인 속성.
  * 라벨은 영문이라 폰트 fallback 문제 없음.
  */
-import type { Metrics } from "./metrics.js";
+import { MIN_SAMPLE, type Metrics } from "./metrics.js";
+import { buildFeedback } from "./feedback.js";
 
 export interface Theme {
   bg1: string; bg2: string;
@@ -49,6 +50,12 @@ export interface CardInput {
   colors?: Partial<Theme>;
   profanityPct?: number | null;
   competencePct?: number | null;
+  /** 카드 숫자의 출처. 지표 진위가 검증됐다는 뜻으로 쓰지 않는다. */
+  provenance?: "local" | "self-reported" | "unverified";
+  /** 로컬에서 실제로 집계한 시각. 제출을 받은 시각과 구분한다. */
+  scannedAt?: string | null;
+  /** 사람 입력을 골라낸 파서 규칙 버전. */
+  filterVersion?: number;
 }
 
 function esc(s: string): string {
@@ -61,8 +68,53 @@ function clamp(n: number, lo: number, hi: number): number {
 }
 const FONT = "'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif";
 
+function sourceLabel(provenance: CardInput["provenance"]): string {
+  if (provenance === "local") return "LOCAL SCAN";
+  if (provenance === "self-reported") return "SELF-REPORTED";
+  return "UNVERIFIED URL DATA";
+}
+
+function cardMetadata(input: CardInput): string {
+  const metricVersion = input.metrics.metricVersion ?? 1;
+  const filterVersion = input.filterVersion ?? 1;
+  const scannedDate = input.scannedAt && Number.isFinite(Date.parse(input.scannedAt))
+    ? new Date(input.scannedAt).toISOString().slice(0, 10)
+    : null;
+  const scanned = scannedDate ? ` · SCANNED ${scannedDate}` : "";
+  return `N=${Math.max(0, Math.floor(input.metrics.prompts)).toLocaleString("en-US")} · RULES F${filterVersion}/M${metricVersion} · ${sourceLabel(input.provenance)}${scanned}`;
+}
+
+function renderCollectingCard(input: CardInput, width: number, height: number): string {
+  const { username, metrics: m } = input;
+  const base = THEMES[input.theme ?? "black"] ?? THEMES.black;
+  const overrides = Object.fromEntries(
+    Object.entries(input.colors ?? {}).filter(([, v]) => v != null && v !== "")
+  );
+  const C: Theme = { ...base, ...overrides } as Theme;
+  const sample = Math.max(0, Math.floor(m.prompts));
+  const center = width / 2;
+  const progressY = height / 2 + 4;
+  const footerSize = width < 600 ? 9 : 11;
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits collecting">
+  <defs>
+    <linearGradient id="cbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${C.bg1}"/>
+      <stop offset="1" stop-color="${C.bg2}"/>
+    </linearGradient>
+  </defs>
+  <rect width="${width}" height="${height}" rx="14" fill="url(#cbg)"/>
+  <rect x="0.75" y="0.75" width="${width - 1.5}" height="${height - 1.5}" rx="13" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
+  <text x="24" y="34" font-family="${FONT}" font-size="16" font-weight="800" fill="${C.title}">PROMPT HABITS</text>
+  <text x="${width - 24}" y="34" font-family="${FONT}" font-size="13" text-anchor="end" fill="${C.muted}">@${esc(username)}</text>
+  <text x="${center}" y="${progressY}" font-family="${FONT}" font-size="25" font-weight="800" text-anchor="middle" fill="${C.ink}">COLLECTING ${sample}/${MIN_SAMPLE}</text>
+  <text x="${center}" y="${progressY + 27}" font-family="${FONT}" font-size="12" text-anchor="middle" fill="${C.muted}">THE SUMMARY UNLOCKS AT ${MIN_SAMPLE} PROMPTS</text>
+  <text x="24" y="${height - 16}" font-family="${FONT}" font-size="${footerSize}" fill="${C.muted}">${esc(cardMetadata(input))}</text>
+</svg>`;
+}
+
 export function renderCard(input: CardInput): string {
   const { username, metrics: m } = input;
+  if (!m.eligible) return renderCollectingCard(input, 500, 200);
   const W = 500, H = 200, R = 16;
 
   const base = THEMES[input.theme ?? "black"] ?? THEMES.black;
@@ -73,8 +125,8 @@ export function renderCard(input: CardInput): string {
 
   const angel =
     input.profanityPct != null
-      ? clamp(input.profanityPct, 0, 100)
-      : clamp(100 - m.profanityRate * 5, 0, 100);
+      ? clamp(100 - input.profanityPct, 0, 100)
+      : clamp(100 - m.profanityRate, 0, 100);
   const smart =
     input.competencePct != null ? clamp(input.competencePct, 0, 100) : clamp(m.competence, 0, 100);
   const angelPct = Math.round(angel);
@@ -102,7 +154,7 @@ export function renderCard(input: CardInput): string {
     : `<circle cx="${avaCx}" cy="${avaCy}" r="${avaR}" fill="url(#avaG)"/>
        <text x="${avaCx}" y="${avaCy + 20}" font-family="${FONT}" font-size="52" font-weight="800" fill="${C.ink}" text-anchor="middle">${esc((username[0] ?? "?").toUpperCase())}</text>`;
 
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} promptkarma card">
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits legacy card">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${C.bg1}"/>
@@ -122,18 +174,69 @@ export function renderCard(input: CardInput): string {
 
   ${avatar}
 
-  <text x="${trackX}" y="46" font-family="${FONT}" font-size="19" font-weight="800" fill="${C.title}" letter-spacing="-0.2">promptkarma</text>
+  <text x="${trackX}" y="46" font-family="${FONT}" font-size="19" font-weight="800" fill="${C.title}" letter-spacing="-0.2">prompt habits</text>
   <text x="${trackX + trackW}" y="46" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="end">@${esc(username)}</text>
 
-  ${gauge(y1, "karma", `${angelPct}% Angel`, karmaKnob, C.karma)}
-  ${gauge(y2, "intelligence", `${smartPct}% smart`, smartKnob, C.intel)}
+  ${gauge(y1, "no-swear prompts", `${angelPct}%`, karmaKnob, C.karma)}
+  ${gauge(y2, "structure signal", `${smartPct}%`, smartKnob, C.intel)}
 
-  <text x="${trackX}" y="184" font-family="${FONT}" font-size="12.5" fill="${C.muted}">${m.prompts.toLocaleString("en-US")} prompts · npx promptkarma</text>
+  <text x="${trackX}" y="184" font-family="${FONT}" font-size="9.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
+</svg>`;
+}
+
+/**
+ * 관찰값과 다음 행동을 바로 읽을 수 있는 기본 공유 카드.
+ * 기존 다포체 카드는 시각 실험으로 보존하고, 이 카드는 과한 능력 판정을 하지 않는다.
+ */
+export function renderFeedbackCard(input: CardInput): string {
+  const { username, metrics: m } = input;
+  const W = 700, H = 260, R = 14;
+  const base = THEMES[input.theme ?? "black"] ?? THEMES.black;
+  const overrides = Object.fromEntries(
+    Object.entries(input.colors ?? {}).filter(([, v]) => v != null && v !== "")
+  );
+  const C: Theme = { ...base, ...overrides } as Theme;
+  const structure = clamp(m.competence, 0, 100);
+  const swearPrompts = clamp(m.profanityRate, 0, 100);
+  const feedback = buildFeedback(m);
+  const sample = Math.max(0, Math.floor(m.prompts));
+
+  const panel = (x: number, label: string, value: string, note: string, color: string) => `
+    <rect x="${x}" y="72" width="310" height="82" rx="10" fill="${C.track}" opacity="0.55"/>
+    <text x="${x + 18}" y="99" font-family="${FONT}" font-size="12" font-weight="700" letter-spacing="1.4" fill="${C.muted}">${label}</text>
+    <text x="${x + 18}" y="137" font-family="${FONT}" font-size="31" font-weight="800" fill="${color}">${value}</text>
+    <text x="${x + 292}" y="136" font-family="${FONT}" font-size="11.5" text-anchor="end" fill="${C.muted}">${note}</text>`;
+
+  const body = feedback.status === "collecting"
+    ? `
+      <rect x="24" y="72" width="652" height="94" rx="10" fill="${C.track}" opacity="0.55"/>
+      <text x="350" y="116" font-family="${FONT}" font-size="26" font-weight="800" text-anchor="middle" fill="${C.ink}">COLLECTING ${sample}/${MIN_SAMPLE}</text>
+      <text x="350" y="143" font-family="${FONT}" font-size="13" text-anchor="middle" fill="${C.muted}">THE SUMMARY UNLOCKS AT ${MIN_SAMPLE} PROMPTS</text>`
+    : panel(24, "STRUCTURE SIGNAL", `${structure.toFixed(1)}%`, "OBSERVED MARKERS", C.intel)
+      + panel(366, "SWEAR PROMPTS", `${swearPrompts.toFixed(1)}%`, "LEXICON MATCH", C.karma);
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits feedback">
+  <defs>
+    <linearGradient id="fbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${C.bg1}"/>
+      <stop offset="1" stop-color="${C.bg2}"/>
+    </linearGradient>
+  </defs>
+  <rect width="${W}" height="${H}" rx="${R}" fill="url(#fbg)"/>
+  <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="${R - 1}" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
+  <text x="24" y="34" font-family="${FONT}" font-size="17" font-weight="800" fill="${C.title}" letter-spacing="0.5">PROMPT HABITS</text>
+  <text x="676" y="34" font-family="${FONT}" font-size="14" text-anchor="end" fill="${C.muted}">@${esc(username)}</text>
+  <text x="24" y="55" font-family="${FONT}" font-size="12.5" fill="${C.muted}">A LOCAL HEURISTIC, NOT AN ABILITY TEST</text>
+  ${body}
+  <text x="24" y="181" font-family="${FONT}" font-size="11.5" fill="${C.muted}">TRY NEXT</text>
+  <rect x="24" y="190" width="652" height="38" rx="8" fill="${C.track}"/>
+  <text x="350" y="215" font-family="${FONT}" font-size="14" font-weight="700" text-anchor="middle" fill="${C.ink}" letter-spacing="0.35">${esc(feedback.cardTip)}</text>
+  <text x="24" y="248" font-family="${FONT}" font-size="11.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
 </svg>`;
 }
 
 // ============================================================================
-// PROMPT POLYTOPE — 다면체 와이어프레임. 복잡도=intelligence, 오라색=karma.
+// PROMPT POLYTOPE — 다면체 와이어프레임. 복잡도=구조 신호, 오라색=말투 참고.
 // ============================================================================
 const PHI = (1 + Math.sqrt(5)) / 2;
 const MONO = "'Courier New','SFMono-Regular',Consolas,monospace";
@@ -229,18 +332,18 @@ export function cell3(): number[][] { return [[1, 1, 1], [1, -1, -1], [-1, 1, -1
  */
 const POLY_LEVELS: (() => number[][])[] = [cell3, cell5, cell16, cell8, cell24, cell600, cell120];
 /**
- * INTELLECT → 티어 경계(7단계이므로 컷 6개). 균등 분할이 아니라 가운데를 촘촘히 둔 완만한 종 모양 —
+ * 구조 신호 → 도형 경계(7단계이므로 컷 6개). 균등 분할이 아니라 가운데를 촘촘히 둔 완만한 종 모양 —
  * 점수가 가운데 몰리는 사람들을 여러 티어로 퍼뜨린다. 상대평가(퍼센타일)가 아니라 절대평가라
  * 남이 submit해도 내 티어는 안 바뀌고 CLI가 로컬에서 티어를 바로 낸다.
  * 잠정값: 현재 표본 2건뿐이라 감으로 잡았다. 데이터가 쌓이면 실제 분포의 분위수로 재조정하고 버전을 올린다.
  */
-const INTEL_CUTS = [18, 34, 46, 56, 68, 84];
-/** 능력 축 라벨. 도형과 **같은 level**로 고르므로 문구와 도형이 어긋날 수 없다. 패널 폭상 10글자 이내. */
-const LEVEL_WORDS = ["CHAOTIC", "SCATTERED", "LOOSE", "DELIBERATE", "STRUCTURED", "SYSTEMATIC", "EXACTING"];
-// 세 상수의 길이는 묶여 있다: level은 0..INTEL_CUTS.length라 도형·라벨 배열이 그만큼 있어야 한다.
+const STRUCTURE_CUTS = [18, 34, 46, 56, 68, 84];
+/** 도형 번호. 구조 신호와 **같은 level**로 고르므로 문구와 도형이 어긋날 수 없다. */
+const LEVEL_WORDS = ["SHAPE 1", "SHAPE 2", "SHAPE 3", "SHAPE 4", "SHAPE 5", "SHAPE 6", "SHAPE 7"];
+// 세 상수의 길이는 묶여 있다: level은 0..STRUCTURE_CUTS.length라 도형·라벨 배열이 그만큼 있어야 한다.
 // 컷 재조정 시 한쪽만 늘리면 POLY_LEVELS[level]이 undefined가 되므로 로드 시점에 막는다.
-if (POLY_LEVELS.length !== INTEL_CUTS.length + 1 || POLY_LEVELS.length !== LEVEL_WORDS.length)
-  throw new Error("POLY_LEVELS·INTEL_CUTS·LEVEL_WORDS 길이 불일치 (티어 = 컷 + 1)");
+if (POLY_LEVELS.length !== STRUCTURE_CUTS.length + 1 || POLY_LEVELS.length !== LEVEL_WORDS.length)
+  throw new Error("POLY_LEVELS·STRUCTURE_CUTS·LEVEL_WORDS 길이 불일치 (티어 = 컷 + 1)");
 
 export function pnormN(v: number[]): number[] { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
 export function pdistN(a: number[], b: number[]): number { let s = 0; for (let i = 0; i < a.length; i++) { const d = a[i]! - b[i]!; s += d * d; } return Math.sqrt(s); }
@@ -324,7 +427,7 @@ function oklch(L: number, C: number, H: number): string {
     return Math.round(g * 255).toString(16).padStart(2, "0");
   }).join("");
 }
-// 선악 오라 색: 발산 그라디언트. k=0 caustic(따뜻한 적) ↔ 0.5 중립(회색) ↔ 1 affirming(차가운 청록).
+// 말투 참고 색: 발산 그라디언트. k=0 욕설 사전 일치 많음 ↔ 0.5 중립 ↔ 1 일치 없음.
 // 채도만 가운데서 0으로 죽이고 색상은 양끝 고정(무지개로 쓸지 않기) — 이게 발산 팔레트의 핵심.
 function karmaColors(k: number, glow: boolean): { line: string; vert: string; core: string; coreOn: boolean } {
   const t = (clamp(k, 0, 1) - 0.5) * 2;          // -1(caustic) .. +1(affirming)
@@ -340,20 +443,21 @@ function karmaColors(k: number, glow: boolean): { line: string; vert: string; co
 
 export function renderPolytope(input: CardInput): string {
   const { username, metrics: m } = input;
+  if (!m.eligible) return renderCollectingCard(input, 700, 300);
   const W = 700, H = 300;
   // renderCard와 같은 방어. 다포체가 이제 기본 카드라 입력이 어긋나도 레벨 인덱스를 벗어나면 안 된다
   // (NaN이면 Math.round도 NaN이고, clamp 두 겹으로도 NaN은 안 걸러진다 → POLY_LEVELS[NaN]).
   const intel = clamp(Math.round(m.competence) || 0, 0, 100);
   const glow = m.karma === "cyan";      // 칭찬>욕이면 발광(발산 색과 별개 축이라 붉은 카드도 발광할 수 있다)
-  const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate * 5)));
+  const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate)));
 
-  const level = INTEL_CUTS.reduce((n, c) => n + (intel >= c ? 1 : 0), 0);   // 0..6 (7티어)
+  const level = STRUCTURE_CUTS.reduce((n, c) => n + (intel >= c ? 1 : 0), 0);   // 0..6 (7티어)
   const { V, E, sweep, is4 } = geometry(level);
   const heavy = V.length > 60;          // 600·120-cell: 선분 개별 애니메이트하면 ~1MB → 단일 path 모프
   const cx = 210, cy = 156, scale = 100;
   // 등각회전은 |w|가 클수록 (x,y,z)가 작아져 원근 확대와 상쇄된다 → 3D 시절과 같은 배율로 크기가 맞는다.
   const D4 = 2.6;                        // 4D→3D 원근 거리(안팎 반전 강도)
-  // 선악 색은 angel(패널에 뜨는 그 숫자)에 연동 → 색과 숫자가 항상 일치. 칭찬>욕이면 발광 코어.
+  // 말투 색은 no-swear 값에 연동해 숫자와 색이 일치한다. 칭찬>욕이면 발광 코어.
   const col = karmaColors(angel / 100, glow);
 
   // 회전을 프레임별 좌표로 구워 SMIL로 재생(정적 SVG는 4D 회전을 못 한다).
@@ -421,7 +525,7 @@ export function renderPolytope(input: CardInput): string {
   const corners = [plus(40, 44), plus(W - 40, 44), plus(40, H - 40), plus(W - 40, H - 40)].join("");
 
   const iWord = LEVEL_WORDS[level]!;
-  const kWord = ["CAUSTIC", "GUARDED", "TEMPERATE", "CIVIL", "AFFIRMING"][Math.min(4, Math.floor(angel / 20))]!;
+  const kWord = "LEXICON";
   // 데이터 패널: 라벨(왼) · 큰 숫자 · 단어(오른). 겹치지 않게 폭·간격 확보.
   const panel = (y: number, label: string, val: string, word: string) => {
     const x = 422, w = 262, h = 58;
@@ -434,7 +538,7 @@ export function renderPolytope(input: CardInput): string {
       <text x="${x + w - 16}" y="${y + 35}" font-family="${MONO}" font-size="11" letter-spacing="1" fill="#8a8a98" text-anchor="end">${word}</text>`;
   };
 
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt polytope">
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits polytope experiment">
   <defs>
     <radialGradient id="pbg" cx="40%" cy="45%" r="78%"><stop offset="0" stop-color="#141419"/><stop offset="1" stop-color="#08080b"/></radialGradient>
     <filter id="pvg" x="-300%" y="-300%" width="700%" height="700%"><feGaussianBlur stdDeviation="1.6"/></filter>
@@ -445,11 +549,12 @@ export function renderPolytope(input: CardInput): string {
   <rect width="${W}" height="${H}" rx="14" fill="url(#pgrid)"/>
   <rect x="0.6" y="0.6" width="${W - 1.2}" height="${H - 1.2}" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
   ${corners}
-  <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(username.toUpperCase())} / PROMPT POLYTOPE</text>
+  <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(username.toUpperCase())} / POLYTOPE EXPERIMENT</text>
   <!-- 4D 모프(위에서 구운 프레임)는 그대로 두고, 글리프 전체를 중심 기준 1바퀴/분(60초)으로
        천천히 돌린다. 베이크 좌표가 아니라 transform 회전이라 각도 보간으로 매끄럽고 용량도 0. -->
   <g><animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 ${cx} ${cy}" to="360 ${cx} ${cy}" dur="60s" repeatCount="indefinite"/>${edges}${core}${verts}</g>
-  ${panel(116, "INTELLECT", String(intel).padStart(2, "0"), iWord)}
-  ${panel(190, "KARMA", String(angel).padStart(2, "0"), kWord)}
+  ${panel(116, "STRUCTURE", String(intel).padStart(2, "0"), iWord)}
+  ${panel(190, "NO-SWEAR", String(angel).padStart(2, "0"), kWord)}
+  <text x="40" y="282" font-family="${MONO}" font-size="10" fill="#777784">${esc(cardMetadata(input))}</text>
 </svg>`;
 }

@@ -25,7 +25,7 @@ const SLASH_TAG = /^<command-name>([^<]*)<\/command-name>/;
 /**
  * JSONL 한 줄을 파싱해 사람 프롬프트면 레코드를, 아니면 null을 반환.
  * 반환 규칙:
- *   - slash 커맨드 → kind:"slash" (길이 무관, 능력 축에서 구조화로 합산됨)
+ *   - slash 커맨드 → kind:"slash" (길이 무관, 참고 횟수로만 집계)
  *   - PASTE_LIMIT 초과 → null (붙여넣은 문서)
  *   - 그 외 사람 프롬프트 → kind:"prompt"
  */

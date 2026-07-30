@@ -1,20 +1,33 @@
 {
   "name": "promptkarma",
   "version": "0.0.1",
-  "description": "AI CLI 세션 로그에서 사용자 프롬프트만 뽑아 태도(선/악)와 활용 능력을 측정하는 CLI",
+  "description": "Claude Code 프롬프트 습관을 로컬에서 분석하고 다음 행동을 제안하는 CLI",
   "type": "module",
   "bin": {
     "promptkarma": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "public/feedback-sample.svg"
   ],
   "scripts": {
     "dev": "bun run src/index.ts",
     "scan": "bun run src/index.ts scan",
     "build": "bun build src/index.ts --target=node --outdir=dist",
     "typecheck": "tsc --noEmit",
-    "test": "bun run src/polytope.test.ts"
+    "test": "bun run src/core.test.ts && bun run src/polytope.test.ts",
+    "prepublishOnly": "bun run typecheck && bun run test",
+    "prepack": "bun run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Youkamii/promptkarma.git"
+  },
+  "homepage": "https://promptkarma.vercel.app",
+  "bugs": "https://github.com/Youkamii/promptkarma/issues",
+  "keywords": ["claude-code", "prompt", "local-first", "developer-tools"],
+  "engines": {
+    "node": "22.x"
   },
   "license": "MIT",
   "devDependencies": {
