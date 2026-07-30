@@ -21,15 +21,12 @@ AI가 같은 내용을 되묻거나, 수정 요청이 빙빙 돌거나, 무엇�
 
 > promptkarma는 능력 검사나 자격증이 아닙니다. 정규식으로 관찰한 작성 신호를 설명하는 휴리스틱입니다.
 
-## 현재 상태
+## 설치와 실행
 
-아직 npm에 공개하지 않았습니다. 따라서 `npx promptkarma` 안내는 현재 동작하지 않습니다. 저장소를 받은 뒤 Bun으로 실행할 수 있습니다.
+Node.js 22가 설치된 컴퓨터에서 바로 실행할 수 있습니다. 첫 실행에서는 npm이 패키지를 내려받습니다.
 
 ```bash
-git clone https://github.com/Youkamii/promptkarma.git
-cd promptkarma
-bun install
-bun run src/index.ts scan
+npx --yes promptkarma scan
 ```
 
 현재는 Claude Code의 `~/.claude/projects/` 세션만 읽습니다.
@@ -72,14 +69,14 @@ promptkarma · 로컬 스캔
 
 도구 출력, 에이전트가 넣은 메시지, 5,000자를 넘는 붙여넣기, 중복 UUID는 제외합니다. 규칙은 단순하고 재현 가능하지만 문맥을 완전히 이해하지 못하므로 오탐과 누락이 생길 수 있습니다.
 
-`bun run src/index.ts scan --explain`을 쓰면 각 신호가 잡힌 짧은 예시를 터미널에서 확인할 수 있습니다. 예시는 화면에만 표시하며 `state.json`에 저장하거나 서버로 보내지 않습니다.
+`npx --yes promptkarma scan --explain`을 쓰면 각 신호가 잡힌 짧은 예시를 터미널에서 확인할 수 있습니다. 예시는 화면에만 표시하며 `state.json`에 저장하거나 서버로 보내지 않습니다.
 
 ## 로컬 카드
 
 스캔 뒤 로컬 SVG를 만들 수 있습니다.
 
 ```bash
-bun run src/index.ts card <label>
+npx --yes promptkarma card <label>
 ```
 
 생성 위치는 `~/.promptkarma/card.svg`입니다. 기본 카드는 다음 정보를 숨기지 않습니다.
@@ -94,7 +91,7 @@ bun run src/index.ts card <label>
 ## 공개 공유는 아직 실험 기능입니다
 
 ```bash
-bun run src/index.ts submit <github-username>
+npx --yes promptkarma submit <github-username>
 ```
 
 ```markdown
@@ -126,7 +123,6 @@ bun run src/index.ts submit <github-username>
 - 평생 누적값이라 최근 변화나 7일·30일 추세를 아직 보여주지 않습니다.
 - 구조 표현이 실제 작업 성공률을 높이는지는 아직 검증하지 않았습니다.
 - 공개 제출에 인증이 없어 다른 사용자의 값을 막지 못합니다.
-- npm 패키지가 아직 없어 한 줄 설치가 되지 않습니다.
 
 제품 방향과 다음 검증 항목은 [이슈 #2](https://github.com/Youkamii/promptkarma/issues/2)에 정리했습니다.
 

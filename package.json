@@ -16,6 +16,7 @@
     "build": "bun build src/index.ts --target=node --outdir=dist",
     "typecheck": "tsc --noEmit",
     "test": "bun run src/core.test.ts && bun run src/polytope.test.ts",
+    "prepublishOnly": "bun run typecheck && bun run test",
     "prepack": "bun run build"
   },
   "repository": {

@@ -159,7 +159,7 @@
         <span class="pill">선택형 공유</span>
       </div>
       <div class="cta">
-        <a class="button primary" href="https://github.com/Youkamii/promptkarma#현재-상태">로컬에서 실행하기</a>
+        <a class="button primary" href="#start">npx로 실행하기</a>
         <a class="button" href="https://github.com/Youkamii/promptkarma#어떻게-측정하나요">측정 규칙 보기</a>
       </div>
     </div>
@@ -191,15 +191,13 @@
     <p>공개값은 사용자가 올린 집계 숫자이며 현재 GitHub 계정 소유권과 로그 진위를 확인하지 못합니다. 그래서 카드에 <strong>SELF-REPORTED</strong>를 표시합니다. 표본이 30개보다 적으면 요약 대신 수집 중 상태만 보여줍니다.</p>
   </section>
 
-  <section class="start">
+  <section class="start" id="start">
     <div>
-      <h2>아직은 저장소에서 실행합니다.</h2>
-      <p>npm에 공개되지 않아 <code>npx promptkarma</code>는 현재 동작하지 않습니다. Claude Code를 사용한 컴퓨터에서 저장소를 받은 뒤 Bun으로 실행하세요.</p>
+      <h2>설치 없이 바로 스캔합니다.</h2>
+      <p>Node.js 22가 설치된 컴퓨터에서 실행하세요. 첫 실행에서는 npm이 패키지를 내려받고, 프롬프트 원문은 서버로 보내지 않습니다.</p>
     </div>
-    <pre>git clone https://github.com/Youkamii/promptkarma.git
-cd promptkarma
-bun install
-bun run src/index.ts scan</pre>
+    <pre>npx --yes promptkarma scan
+npx --yes promptkarma scan --explain</pre>
   </section>
 
   <footer>promptkarma · MIT · 원문은 로컬 집계 뒤 버립니다.</footer>
