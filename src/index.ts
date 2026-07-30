@@ -169,7 +169,7 @@ async function runSubmit(): Promise<void> {
     process.exit(1);
   }
 
-  const url = `${API_BASE}/api/card?u=${encodeURIComponent(username)}&style=feedback`;
+  const url = `${API_BASE}/api/card?u=${encodeURIComponent(username)}&style=coach&theme=black`;
   console.log(`제출 완료: ${username}`);
   console.log("공개 카드는 계정·로그가 검증되지 않은 SELF-REPORTED 값으로 표시됩니다.");
   console.log("\n같은 주소를 붙여두고, 다시 scan 후 submit하면 값이 갱신됩니다:");

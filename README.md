@@ -6,6 +6,8 @@
 
 ![promptkarma local feedback sample](./public/feedback-sample.svg)
 
+[**온라인 배지 스튜디오에서 내 카드 만들기 →**](https://promptkarma.vercel.app)
+
 </div>
 
 ## 왜 쓰나요?
@@ -21,15 +23,33 @@ AI가 같은 내용을 되묻거나, 수정 요청이 빙빙 돌거나, 무엇�
 
 > promptkarma는 능력 검사나 자격증이 아닙니다. 정규식으로 관찰한 작성 신호를 설명하는 휴리스틱입니다.
 
-## 설치와 실행
+## 3단계로 씁니다
+
+### 1. 로컬에서 스캔
 
 Node.js 22가 설치된 컴퓨터에서 바로 실행할 수 있습니다. 첫 실행에서는 npm이 패키지를 내려받습니다.
+
+현재는 Claude Code의 `~/.claude/projects/` 세션만 읽습니다.
 
 ```bash
 npx --yes promptkarma scan
 ```
 
-현재는 Claude Code의 `~/.claude/projects/` 세션만 읽습니다.
+### 2. 결과 확인
+
+터미널에서 네 가지 작성 신호와 다음에 시험할 한 가지를 확인합니다. 어떤 문장이 규칙에 잡혔는지 보고 싶다면 설명 모드를 씁니다.
+
+```bash
+npx --yes promptkarma scan --explain
+```
+
+### 3. 원할 때만 공유
+
+```bash
+npx --yes promptkarma submit <github-username>
+```
+
+[배지 스튜디오](https://promptkarma.vercel.app)에서 사용자명, 카드, 테마를 고르고 README 코드를 복사합니다. 로그인은 필요 없습니다. 공개 스캔 전에는 `COLLECTING` 카드가 보이며, 같은 주소를 먼저 README에 붙여도 나중에 `submit`한 값으로 갱신됩니다.
 
 ## 스캔 결과
 
@@ -88,23 +108,29 @@ npx --yes promptkarma card <label>
 - 로컬 스캔인지 자기신고 공개값인지
 - 다음에 해볼 한 가지
 
-## 공개 공유는 아직 실험 기능입니다
-
-```bash
-npx --yes promptkarma submit <github-username>
-```
+## 공개 배지
 
 ```markdown
-[![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>&style=feedback)](https://github.com/Youkamii/promptkarma)
+[![promptkarma](https://promptkarma.vercel.app/api/card?u=<username>&style=coach&theme=black)](https://promptkarma.vercel.app)
 ```
 
 현재 서버는 GitHub 계정 소유권과 로컬 로그의 진위를 확인하지 못합니다. 그래서 공개 카드는 `SELF-REPORTED`로 표시합니다. URL에 지표를 직접 넣은 카드는 `UNVERIFIED URL DATA`로 표시합니다.
 
 계정 연결을 나중에 추가하더라도 확인되는 것은 “이 GitHub 계정이 제출했다”는 사실뿐입니다. 원본 로그를 믿을 수 있는 환경에서 검사하지 않는 한 능력이나 지표가 검증됐다고 표현하지 않습니다.
 
-## 기존 다포체 카드
+### 카드와 테마
 
-다포체 카드는 시각 실험으로 남겨두었습니다. 새 기본값은 아니지만 기존 링크는 그대로 동작합니다.
+| 값 | 모습 |
+|---|---|
+| `style=coach` | 기본 카드. 네 가지 신호와 다음 행동 |
+| `style=polytope` | 구조 신호로 모양이 바뀌는 움직이는 시각 실험 |
+| `style=classic` | 기존 500×200 가로 카드 |
+| `theme=black` | 기본 어두운 테마 |
+| `theme=cyberpunk` | 분홍·하늘색 네온 테마 |
+| `theme=ivory` | 밝은 아이보리 테마 |
+| `theme=korean` | 한지색 테마 |
+
+스타일을 생략하면 `coach`가 사용됩니다. 예전에 쓰던 `style=feedback` 주소도 계속 같은 코치 카드를 보여줍니다. 다포체는 현재 전용 어두운 테마를 씁니다.
 
 ```markdown
 ![promptkarma polytope](https://promptkarma.vercel.app/api/card?u=<username>&style=polytope)
@@ -124,7 +150,7 @@ npx --yes promptkarma submit <github-username>
 - 구조 표현이 실제 작업 성공률을 높이는지는 아직 검증하지 않았습니다.
 - 공개 제출에 인증이 없어 다른 사용자의 값을 막지 못합니다.
 
-제품 방향과 다음 검증 항목은 [이슈 #2](https://github.com/Youkamii/promptkarma/issues/2)에 정리했습니다.
+첫 화면과 공유 경험 개선은 [이슈 #6](https://github.com/Youkamii/promptkarma/issues/6)에 정리했습니다.
 
 ## 개발
 
