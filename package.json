@@ -1,14 +1,14 @@
 {
   "name": "promptkarma",
-  "version": "0.0.2",
-  "description": "Claude Code 프롬프트 습관을 로컬에서 분석하고 다음 행동을 제안하는 CLI",
+  "version": "0.0.3",
+  "description": "Claude Code 프롬프트에서 AI를 대하는 태도와 지시 구조를 배지로 만드는 로컬 CLI",
   "type": "module",
   "bin": {
     "promptkarma": "dist/index.js"
   },
   "files": [
     "dist",
-    "public/feedback-sample.svg"
+    "public/badge-sample.svg"
   ],
   "scripts": {
     "dev": "bun run scripts/preview.ts",

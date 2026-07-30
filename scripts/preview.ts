@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { renderCard, renderFeedbackCard, renderPolytope } from "../src/card.js";
+import { renderCard, renderPolytope } from "../src/card.js";
 import { METRIC_VERSION, type Metrics } from "../src/metrics.js";
 
 const metrics: Metrics = {
@@ -9,16 +9,10 @@ const metrics: Metrics = {
   slash: 0,
   profanityRate: 1.4,
   promptsPerSwear: 71,
-  competence: 68.2,
+  competence: 62,
   praiseRate: 0,
   karma: "white",
   eligible: true,
-  habits: {
-    contextRate: 54.7,
-    constraintRate: 18.2,
-    stepRate: 45.9,
-    outsourceRate: 6.1,
-  },
 };
 
 const port = Number(process.env.PORT ?? 3016);
@@ -32,9 +26,9 @@ createServer(async (request, response) => {
       response.end(await readFile(new URL("index.html", root)));
       return;
     }
-    if (url.pathname === "/feedback-sample.svg") {
+    if (url.pathname === "/badge-sample.svg") {
       response.writeHead(200, { "Content-Type": "image/svg+xml; charset=utf-8" });
-      response.end(await readFile(new URL("feedback-sample.svg", root)));
+      response.end(await readFile(new URL("badge-sample.svg", root)));
       return;
     }
     if (url.pathname === "/api/card") {
@@ -47,11 +41,9 @@ createServer(async (request, response) => {
         provenance: "local" as const,
         filterVersion: 1,
       };
-      const svg = style === "polytope"
-        ? renderPolytope(input)
-        : style === "classic"
-          ? renderCard(input)
-          : renderFeedbackCard(input);
+      const svg = style === "classic"
+        ? renderCard(input)
+        : renderPolytope(input);
       response.writeHead(200, {
         "Content-Type": "image/svg+xml; charset=utf-8",
         "Cache-Control": "no-store",

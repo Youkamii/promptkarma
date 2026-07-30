@@ -15,10 +15,6 @@ export interface CardRow {
   promptsPerSwear: number | null;
   praise: number;          // 칭찬 발생률 %
   karma: string;           // "cyan" | "white" | "black" (오라 색)
-  contextRate: number | null;
-  constraintRate: number | null;
-  stepRate: number | null;
-  outsourceRate: number | null;
   scannedAt: string | null;
   filterVersion: number | null;
   metricVersion: number | null;
@@ -46,10 +42,6 @@ export async function ensureSchema(): Promise<void> {
   // karma·praise는 나중에 추가된 컬럼. 기존 테이블에도 안전하게 붙인다.
   await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS praise real NOT NULL DEFAULT 0`;
   await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS karma text NOT NULL DEFAULT 'white'`;
-  await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS context_rate real`;
-  await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS constraint_rate real`;
-  await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS step_rate real`;
-  await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS outsource_rate real`;
   await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS scanned_at timestamptz`;
   await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS filter_version integer`;
   await db`ALTER TABLE cards ADD COLUMN IF NOT EXISTS metric_version integer`;
@@ -60,7 +52,6 @@ export async function upsertCard(r: CardWrite): Promise<void> {
   await db`
     INSERT INTO cards (
       username, profanity, competence, prompts, prompts_per_swear, praise, karma,
-      context_rate, constraint_rate, step_rate, outsource_rate,
       scanned_at, filter_version, metric_version, updated_at
     )
     VALUES (
@@ -71,7 +62,6 @@ export async function upsertCard(r: CardWrite): Promise<void> {
         LIMIT 1
       ), ${r.username}),
       ${r.profanity}, ${r.competence}, ${r.prompts}, ${r.promptsPerSwear}, ${r.praise}, ${r.karma},
-      ${r.contextRate}, ${r.constraintRate}, ${r.stepRate}, ${r.outsourceRate},
       ${r.scannedAt}, ${r.filterVersion}, ${r.metricVersion}, now()
     )
     ON CONFLICT (username) DO UPDATE SET
@@ -81,10 +71,6 @@ export async function upsertCard(r: CardWrite): Promise<void> {
       prompts_per_swear = EXCLUDED.prompts_per_swear,
       praise = EXCLUDED.praise,
       karma = EXCLUDED.karma,
-      context_rate = EXCLUDED.context_rate,
-      constraint_rate = EXCLUDED.constraint_rate,
-      step_rate = EXCLUDED.step_rate,
-      outsource_rate = EXCLUDED.outsource_rate,
       scanned_at = EXCLUDED.scanned_at,
       filter_version = EXCLUDED.filter_version,
       metric_version = EXCLUDED.metric_version,
@@ -98,10 +84,6 @@ export async function getCard(username: string): Promise<CardRow | null> {
     const rows = (await db`
       SELECT username, profanity, competence, prompts,
              prompts_per_swear AS "promptsPerSwear", praise, karma,
-             context_rate AS "contextRate",
-             constraint_rate AS "constraintRate",
-             step_rate AS "stepRate",
-             outsource_rate AS "outsourceRate",
              scanned_at AS "scannedAt",
              filter_version AS "filterVersion",
              metric_version AS "metricVersion",
@@ -118,16 +100,10 @@ export async function getCard(username: string): Promise<CardRow | null> {
              updated_at AS "updatedAt"
       FROM cards WHERE lower(username) = lower(${username})
       ORDER BY updated_at DESC
-      LIMIT 1`) as Omit<CardRow,
-        "contextRate" | "constraintRate" | "stepRate" | "outsourceRate"
-        | "scannedAt" | "filterVersion" | "metricVersion">[];
+      LIMIT 1`) as Omit<CardRow, "scannedAt" | "filterVersion" | "metricVersion">[];
     const row = rows[0];
     return row ? {
       ...row,
-      contextRate: null,
-      constraintRate: null,
-      stepRate: null,
-      outsourceRate: null,
       scannedAt: null,
       filterVersion: 1,
       metricVersion: 1,
