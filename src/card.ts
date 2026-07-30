@@ -25,7 +25,7 @@ export const THEMES: Record<string, Theme> = {
     ava1: "#3a3350", ava2: "#211d33", border: "#ffffff", title: "#c084fc", glow: false,
   },
   ivory: {
-    bg1: "#fdfbf5", bg2: "#f4efe3", ink: "#2e2a24", muted: "#9a9080",
+    bg1: "#fdfbf5", bg2: "#f4efe3", ink: "#2e2a24", muted: "#6f6557",
     track: "#e7dfce", karma: "#8b5cf6", intel: "#0d9488",
     ava1: "#efe7d6", ava2: "#e2d7bf", border: "#000000", title: "#8b5cf6", glow: false,
   },
@@ -35,7 +35,7 @@ export const THEMES: Record<string, Theme> = {
     ava1: "#3d1163", ava2: "#1c0838", border: "#ff2e97", title: "#00f0ff", glow: true,
   },
   korean: {
-    bg1: "#f2e8d2", bg2: "#e6d9ba", ink: "#3a2a1e", muted: "#8a7550",
+    bg1: "#f2e8d2", bg2: "#e6d9ba", ink: "#3a2a1e", muted: "#665335",
     track: "#d6c39c", karma: "#c8102e", intel: "#1e5f4f",
     ava1: "#e8d9b6", ava2: "#d4be93", border: "#c8102e", title: "#1e5f4f", glow: false,
   },
@@ -51,7 +51,7 @@ export interface CardInput {
   profanityPct?: number | null;
   competencePct?: number | null;
   /** 카드 숫자의 출처. 지표 진위가 검증됐다는 뜻으로 쓰지 않는다. */
-  provenance?: "local" | "self-reported" | "unverified";
+  provenance?: "local" | "self-reported" | "unverified" | "missing" | "unavailable";
   /** 로컬에서 실제로 집계한 시각. 제출을 받은 시각과 구분한다. */
   scannedAt?: string | null;
   /** 사람 입력을 골라낸 파서 규칙 버전. */
@@ -64,13 +64,22 @@ function esc(s: string): string {
   );
 }
 function clamp(n: number, lo: number, hi: number): number {
+  if (!Number.isFinite(n)) return lo;
   return Math.min(hi, Math.max(lo, n));
+}
+function sampleCount(n: number): number {
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+}
+function displayUsername(username: string, maxLength = 20): string {
+  return username.length <= maxLength ? username : `${username.slice(0, maxLength - 1)}…`;
 }
 const FONT = "'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif";
 
 function sourceLabel(provenance: CardInput["provenance"]): string {
   if (provenance === "local") return "LOCAL SCAN";
   if (provenance === "self-reported") return "SELF-REPORTED";
+  if (provenance === "missing") return "NO PUBLIC SCAN";
+  if (provenance === "unavailable") return "DATA UNAVAILABLE";
   return "UNVERIFIED URL DATA";
 }
 
@@ -81,7 +90,7 @@ function cardMetadata(input: CardInput): string {
     ? new Date(input.scannedAt).toISOString().slice(0, 10)
     : null;
   const scanned = scannedDate ? ` · SCANNED ${scannedDate}` : "";
-  return `N=${Math.max(0, Math.floor(input.metrics.prompts)).toLocaleString("en-US")} · RULES F${filterVersion}/M${metricVersion} · ${sourceLabel(input.provenance)}${scanned}`;
+  return `N=${sampleCount(input.metrics.prompts).toLocaleString("en-US")} · RULES F${filterVersion}/M${metricVersion} · ${sourceLabel(input.provenance)}${scanned}`;
 }
 
 function renderCollectingCard(input: CardInput, width: number, height: number): string {
@@ -91,11 +100,63 @@ function renderCollectingCard(input: CardInput, width: number, height: number): 
     Object.entries(input.colors ?? {}).filter(([, v]) => v != null && v !== "")
   );
   const C: Theme = { ...base, ...overrides } as Theme;
-  const sample = Math.max(0, Math.floor(m.prompts));
+  const sample = sampleCount(m.prompts);
+  if (width >= 600) {
+    const unavailable = input.provenance === "unavailable";
+    const remaining = Math.max(0, MIN_SAMPLE - sample);
+    const progress = clamp(sample / MIN_SAMPLE, 0, 1);
+    const nextMove = unavailable
+      ? "RETRY THIS CARD IN A MOMENT"
+      : sample === 0
+        ? "RUN NPX PROMPTKARMA SCAN TO START"
+        : `COLLECT ${remaining} MORE PROMPT${remaining === 1 ? "" : "S"}`;
+    const status = unavailable
+      ? `
+        <text x="${width / 2}" y="120" font-family="${FONT}" font-size="23" font-weight="850" text-anchor="middle" fill="${C.ink}">PUBLIC CARD TEMPORARILY UNAVAILABLE</text>
+        <text x="${width / 2}" y="147" font-family="${FONT}" font-size="11" font-weight="700" text-anchor="middle" fill="${C.muted}" letter-spacing="0.8">THE STORED SNAPSHOT COULD NOT BE LOADED</text>
+        <rect x="${width / 2 - 80}" y="165" width="160" height="5" rx="2.5" fill="${C.title}" opacity="0.45"/>`
+      : `
+        <text x="${width / 2}" y="117" font-family="${FONT}" font-size="25" font-weight="850" text-anchor="middle" fill="${C.ink}">COLLECTING ${sample}/${MIN_SAMPLE}</text>
+        <text x="${width / 2}" y="140" font-family="${FONT}" font-size="11" font-weight="700" text-anchor="middle" fill="${C.muted}" letter-spacing="0.8">HABIT SNAPSHOT UNLOCKS AT ${MIN_SAMPLE} PROMPTS</text>
+        <rect x="92" y="160" width="${width - 184}" height="7" rx="3.5" fill="${C.bg2}" opacity="0.75"/>
+        <rect x="92" y="160" width="${((width - 184) * progress).toFixed(1)}" height="7" rx="3.5" fill="${C.intel}"/>`;
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits ${unavailable ? "temporarily unavailable" : "collecting"}">
+  <defs>
+    <linearGradient id="cbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${C.bg1}"/>
+      <stop offset="1" stop-color="${C.bg2}"/>
+    </linearGradient>
+    <linearGradient id="cmark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${C.title}"/>
+      <stop offset="1" stop-color="${C.intel}"/>
+    </linearGradient>
+  </defs>
+  <rect width="${width}" height="${height}" rx="16" fill="url(#cbg)"/>
+  <rect x="0.75" y="0.75" width="${width - 1.5}" height="${height - 1.5}" rx="15" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
+  <rect x="20" y="20" width="34" height="34" rx="10" fill="url(#cmark)"/>
+  <path d="M30 44V30h8.2c4.4 0 7.2 2.3 7.2 6s-2.8 6-7.2 6H34v2zM34 34v4h4c2 0 3-.7 3-2s-1-2-3-2z" fill="${C.bg2}"/>
+  <text x="66" y="35" font-family="${FONT}" font-size="15" font-weight="850" fill="${C.ink}" letter-spacing="0.5">PROMPTKARMA</text>
+  <text x="66" y="52" font-family="${FONT}" font-size="10.5" font-weight="700" fill="${C.muted}" letter-spacing="1.05">PERSONAL PROMPT SIGNALS · HEURISTIC</text>
+  <text x="${width - 24}" y="36" font-family="${FONT}" font-size="14" font-weight="750" text-anchor="end" fill="${C.ink}">@${esc(displayUsername(username))}</text>
+  <text x="${width - 24}" y="53" font-family="${FONT}" font-size="10.5" text-anchor="end" fill="${C.muted}">${esc(sourceLabel(input.provenance))}</text>
+
+  <rect x="20" y="72" width="${width - 40}" height="125" rx="14" fill="${C.track}" opacity="0.42"/>
+  ${status}
+
+  <rect x="20" y="210" width="${width - 40}" height="47" rx="12" fill="${C.track}" opacity="0.72"/>
+  <rect x="20" y="210" width="5" height="47" rx="2.5" fill="${C.title}"/>
+  <text x="39" y="229" font-family="${FONT}" font-size="9.5" font-weight="850" letter-spacing="1.25" fill="${C.title}">NEXT MOVE</text>
+  <text x="39" y="247" font-family="${FONT}" font-size="13" font-weight="750" fill="${C.ink}">${nextMove}</text>
+  <text x="20" y="${height - 14}" font-family="${FONT}" font-size="10.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
+</svg>`;
+  }
   const center = width / 2;
   const progressY = height / 2 + 4;
   const footerSize = width < 600 ? 9 : 11;
-  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits collecting">
+  const unavailable = input.provenance === "unavailable";
+  const statusTitle = unavailable ? "DATA UNAVAILABLE" : `COLLECTING ${sample}/${MIN_SAMPLE}`;
+  const statusDetail = unavailable ? "TRY THIS CARD AGAIN IN A MOMENT" : `THE SUMMARY UNLOCKS AT ${MIN_SAMPLE} PROMPTS`;
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits ${unavailable ? "temporarily unavailable" : "collecting"}">
   <defs>
     <linearGradient id="cbg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${C.bg1}"/>
@@ -105,9 +166,9 @@ function renderCollectingCard(input: CardInput, width: number, height: number): 
   <rect width="${width}" height="${height}" rx="14" fill="url(#cbg)"/>
   <rect x="0.75" y="0.75" width="${width - 1.5}" height="${height - 1.5}" rx="13" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
   <text x="24" y="34" font-family="${FONT}" font-size="16" font-weight="800" fill="${C.title}">PROMPT HABITS</text>
-  <text x="${width - 24}" y="34" font-family="${FONT}" font-size="13" text-anchor="end" fill="${C.muted}">@${esc(username)}</text>
-  <text x="${center}" y="${progressY}" font-family="${FONT}" font-size="25" font-weight="800" text-anchor="middle" fill="${C.ink}">COLLECTING ${sample}/${MIN_SAMPLE}</text>
-  <text x="${center}" y="${progressY + 27}" font-family="${FONT}" font-size="12" text-anchor="middle" fill="${C.muted}">THE SUMMARY UNLOCKS AT ${MIN_SAMPLE} PROMPTS</text>
+  <text x="${width - 24}" y="34" font-family="${FONT}" font-size="13" text-anchor="end" fill="${C.muted}">@${esc(displayUsername(username, 18))}</text>
+  <text x="${center}" y="${progressY}" font-family="${FONT}" font-size="25" font-weight="800" text-anchor="middle" fill="${C.ink}">${statusTitle}</text>
+  <text x="${center}" y="${progressY + 27}" font-family="${FONT}" font-size="12" text-anchor="middle" fill="${C.muted}">${statusDetail}</text>
   <text x="24" y="${height - 16}" font-family="${FONT}" font-size="${footerSize}" fill="${C.muted}">${esc(cardMetadata(input))}</text>
 </svg>`;
 }
@@ -175,7 +236,7 @@ export function renderCard(input: CardInput): string {
   ${avatar}
 
   <text x="${trackX}" y="46" font-family="${FONT}" font-size="19" font-weight="800" fill="${C.title}" letter-spacing="-0.2">prompt habits</text>
-  <text x="${trackX + trackW}" y="46" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="end">@${esc(username)}</text>
+  <text x="${trackX + trackW}" y="46" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="end">@${esc(displayUsername(username, 18))}</text>
 
   ${gauge(y1, "no-swear prompts", `${angelPct}%`, karmaKnob, C.karma)}
   ${gauge(y2, "structure signal", `${smartPct}%`, smartKnob, C.intel)}
@@ -190,7 +251,8 @@ export function renderCard(input: CardInput): string {
  */
 export function renderFeedbackCard(input: CardInput): string {
   const { username, metrics: m } = input;
-  const W = 700, H = 260, R = 14;
+  if (!m.eligible) return renderCollectingCard(input, 700, 300);
+  const W = 700, H = 300, R = 16;
   const base = THEMES[input.theme ?? "black"] ?? THEMES.black;
   const overrides = Object.fromEntries(
     Object.entries(input.colors ?? {}).filter(([, v]) => v != null && v !== "")
@@ -199,21 +261,30 @@ export function renderFeedbackCard(input: CardInput): string {
   const structure = clamp(m.competence, 0, 100);
   const swearPrompts = clamp(m.profanityRate, 0, 100);
   const feedback = buildFeedback(m);
-  const sample = Math.max(0, Math.floor(m.prompts));
-
-  const panel = (x: number, label: string, value: string, note: string, color: string) => `
-    <rect x="${x}" y="72" width="310" height="82" rx="10" fill="${C.track}" opacity="0.55"/>
-    <text x="${x + 18}" y="99" font-family="${FONT}" font-size="12" font-weight="700" letter-spacing="1.4" fill="${C.muted}">${label}</text>
-    <text x="${x + 18}" y="137" font-family="${FONT}" font-size="31" font-weight="800" fill="${color}">${value}</text>
-    <text x="${x + 292}" y="136" font-family="${FONT}" font-size="11.5" text-anchor="end" fill="${C.muted}">${note}</text>`;
-
-  const body = feedback.status === "collecting"
+  const ringR = 42;
+  const ringLength = 2 * Math.PI * ringR;
+  const ringValue = ringLength * structure / 100;
+  const habitBar = (x: number, y: number, label: string, value: number, color: string) => {
+    const safeValue = clamp(value, 0, 100);
+    return `
+      <text x="${x}" y="${y}" font-family="${FONT}" font-size="10.5" font-weight="750" letter-spacing="0.9" fill="${C.muted}">${label}</text>
+      <text x="${x + 164}" y="${y}" font-family="${FONT}" font-size="12" font-weight="800" text-anchor="end" fill="${C.ink}">${safeValue.toFixed(1)}%</text>
+      <rect x="${x}" y="${y + 10}" width="164" height="5" rx="2.5" fill="${C.track}"/>
+      <rect x="${x}" y="${y + 10}" width="${(164 * safeValue / 100).toFixed(1)}" height="5" rx="2.5" fill="${color}" opacity="0.82"/>`;
+  };
+  const detail = m.habits
     ? `
-      <rect x="24" y="72" width="652" height="94" rx="10" fill="${C.track}" opacity="0.55"/>
-      <text x="350" y="116" font-family="${FONT}" font-size="26" font-weight="800" text-anchor="middle" fill="${C.ink}">COLLECTING ${sample}/${MIN_SAMPLE}</text>
-      <text x="350" y="143" font-family="${FONT}" font-size="13" text-anchor="middle" fill="${C.muted}">THE SUMMARY UNLOCKS AT ${MIN_SAMPLE} PROMPTS</text>`
-    : panel(24, "STRUCTURE SIGNAL", `${structure.toFixed(1)}%`, "OBSERVED MARKERS", C.intel)
-      + panel(366, "SWEAR PROMPTS", `${swearPrompts.toFixed(1)}%`, "LEXICON MATCH", C.karma);
+      <text x="286" y="96" font-family="${FONT}" font-size="10.5" font-weight="800" letter-spacing="1.2" fill="${C.title}">SIGNAL MIX</text>
+      ${habitBar(286, 121, "CONTEXT", m.habits.contextRate, C.intel)}
+      ${habitBar(488, 121, "CONSTRAINTS", m.habits.constraintRate, C.karma)}
+      ${habitBar(286, 170, "STEPS", m.habits.stepRate, C.title)}
+      ${habitBar(488, 170, "HANDOFF / NO RULE", m.habits.outsourceRate, C.karma)}`
+    : `
+      <text x="286" y="105" font-family="${FONT}" font-size="10.5" font-weight="800" letter-spacing="1.2" fill="${C.title}">SIGNAL MIX</text>
+      <text x="286" y="136" font-family="${FONT}" font-size="17" font-weight="800" fill="${C.ink}">DETAIL VIEW NEEDS A FRESH SCAN</text>
+      <text x="286" y="159" font-family="${FONT}" font-size="11.5" fill="${C.muted}">CONTEXT · CONSTRAINTS · STEPS · DELEGATION</text>
+      <rect x="286" y="178" width="366" height="5" rx="2.5" fill="${C.track}"/>
+      <rect x="286" y="178" width="88" height="5" rx="2.5" fill="${C.title}" opacity="0.3"/>`;
 
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(username)} prompt habits feedback">
   <defs>
@@ -221,17 +292,43 @@ export function renderFeedbackCard(input: CardInput): string {
       <stop offset="0" stop-color="${C.bg1}"/>
       <stop offset="1" stop-color="${C.bg2}"/>
     </linearGradient>
+    <linearGradient id="fmark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${C.title}"/>
+      <stop offset="1" stop-color="${C.intel}"/>
+    </linearGradient>
+    <filter id="fglow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
   <rect width="${W}" height="${H}" rx="${R}" fill="url(#fbg)"/>
   <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="${R - 1}" fill="none" stroke="${C.border}" stroke-opacity="0.12"/>
-  <text x="24" y="34" font-family="${FONT}" font-size="17" font-weight="800" fill="${C.title}" letter-spacing="0.5">PROMPT HABITS</text>
-  <text x="676" y="34" font-family="${FONT}" font-size="14" text-anchor="end" fill="${C.muted}">@${esc(username)}</text>
-  <text x="24" y="55" font-family="${FONT}" font-size="12.5" fill="${C.muted}">A LOCAL HEURISTIC, NOT AN ABILITY TEST</text>
-  ${body}
-  <text x="24" y="181" font-family="${FONT}" font-size="11.5" fill="${C.muted}">TRY NEXT</text>
-  <rect x="24" y="190" width="652" height="38" rx="8" fill="${C.track}"/>
-  <text x="350" y="215" font-family="${FONT}" font-size="14" font-weight="700" text-anchor="middle" fill="${C.ink}" letter-spacing="0.35">${esc(feedback.cardTip)}</text>
-  <text x="24" y="248" font-family="${FONT}" font-size="11.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
+  <rect x="20" y="20" width="34" height="34" rx="10" fill="url(#fmark)"${C.glow ? ' filter="url(#fglow)"' : ""}/>
+  <path d="M30 44V30h8.2c4.4 0 7.2 2.3 7.2 6s-2.8 6-7.2 6H34v2zM34 34v4h4c2 0 3-.7 3-2s-1-2-3-2z" fill="${C.bg2}"/>
+  <text x="66" y="35" font-family="${FONT}" font-size="15" font-weight="850" fill="${C.ink}" letter-spacing="0.5">PROMPTKARMA</text>
+  <text x="66" y="52" font-family="${FONT}" font-size="10.5" font-weight="700" fill="${C.muted}" letter-spacing="1.05">PERSONAL PROMPT SIGNALS · HEURISTIC</text>
+  <text x="676" y="36" font-family="${FONT}" font-size="14" font-weight="750" text-anchor="end" fill="${C.ink}">@${esc(displayUsername(username))}</text>
+  <text x="676" y="53" font-family="${FONT}" font-size="10.5" text-anchor="end" fill="${C.muted}">${esc(sourceLabel(input.provenance))}</text>
+
+  <rect x="20" y="72" width="236" height="132" rx="14" fill="${C.track}" opacity="0.45"/>
+  <circle cx="88" cy="137" r="${ringR}" fill="none" stroke="${C.track}" stroke-width="8"/>
+  <circle cx="88" cy="137" r="${ringR}" fill="none" stroke="${C.intel}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${ringValue.toFixed(1)} ${ringLength.toFixed(1)}" transform="rotate(-90 88 137)"${C.glow ? ' filter="url(#fglow)"' : ""}/>
+  <text x="88" y="135" font-family="${FONT}" font-size="23" font-weight="850" text-anchor="middle" fill="${C.ink}">${structure.toFixed(1)}</text>
+  <text x="88" y="152" font-family="${FONT}" font-size="9.5" font-weight="750" text-anchor="middle" fill="${C.muted}">PERCENT</text>
+  <text x="148" y="112" font-family="${FONT}" font-size="10.5" font-weight="800" letter-spacing="1" fill="${C.muted}">STRUCTURE</text>
+  <text x="148" y="136" font-family="${FONT}" font-size="14" font-weight="800" fill="${C.ink}">OBSERVED</text>
+  <text x="148" y="153" font-family="${FONT}" font-size="14" font-weight="800" fill="${C.ink}">MARKERS</text>
+  <text x="148" y="176" font-family="${FONT}" font-size="9.5" font-weight="750" letter-spacing="0.75" fill="${C.muted}">NO-SWEAR</text>
+  <text x="148" y="195" font-family="${FONT}" font-size="15" font-weight="850" fill="${C.karma}">${(100 - swearPrompts).toFixed(1)}%</text>
+
+  <rect x="270" y="72" width="410" height="132" rx="14" fill="${C.track}" opacity="0.28"/>
+  ${detail}
+
+  <rect x="20" y="216" width="660" height="47" rx="12" fill="${C.track}" opacity="0.72"/>
+  <rect x="20" y="216" width="5" height="47" rx="2.5" fill="${C.title}"/>
+  <text x="39" y="235" font-family="${FONT}" font-size="9.5" font-weight="850" letter-spacing="1.25" fill="${C.title}">NEXT MOVE</text>
+  <text x="39" y="253" font-family="${FONT}" font-size="13" font-weight="750" fill="${C.ink}" letter-spacing="0.2">${esc(feedback.cardTip)}</text>
+  <text x="20" y="286" font-family="${FONT}" font-size="10.5" fill="${C.muted}">${esc(cardMetadata(input))}</text>
 </svg>`;
 }
 
@@ -449,7 +546,7 @@ export function renderPolytope(input: CardInput): string {
   // (NaN이면 Math.round도 NaN이고, clamp 두 겹으로도 NaN은 안 걸러진다 → POLY_LEVELS[NaN]).
   const intel = clamp(Math.round(m.competence) || 0, 0, 100);
   const glow = m.karma === "cyan";      // 칭찬>욕이면 발광(발산 색과 별개 축이라 붉은 카드도 발광할 수 있다)
-  const angel = Math.round(Math.max(0, Math.min(100, 100 - m.profanityRate)));
+  const angel = Math.round(100 - clamp(m.profanityRate, 0, 100));
 
   const level = STRUCTURE_CUTS.reduce((n, c) => n + (intel >= c ? 1 : 0), 0);   // 0..6 (7티어)
   const { V, E, sweep, is4 } = geometry(level);
@@ -549,7 +646,7 @@ export function renderPolytope(input: CardInput): string {
   <rect width="${W}" height="${H}" rx="14" fill="url(#pgrid)"/>
   <rect x="0.6" y="0.6" width="${W - 1.2}" height="${H - 1.2}" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
   ${corners}
-  <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(username.toUpperCase())} / POLYTOPE EXPERIMENT</text>
+  <text x="40" y="40" font-family="${MONO}" font-size="14" letter-spacing="2.5" fill="#b8b8c4">${esc(displayUsername(username, 24).toUpperCase())} / POLYTOPE EXPERIMENT</text>
   <!-- 4D 모프(위에서 구운 프레임)는 그대로 두고, 글리프 전체를 중심 기준 1바퀴/분(60초)으로
        천천히 돌린다. 베이크 좌표가 아니라 transform 회전이라 각도 보간으로 매끄럽고 용량도 0. -->
   <g><animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 ${cx} ${cy}" to="360 ${cx} ${cy}" dur="60s" repeatCount="indefinite"/>${edges}${core}${verts}</g>

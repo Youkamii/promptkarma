@@ -28,12 +28,21 @@ export function buildFeedback(metrics: Metrics): Feedback {
     return {
       status: "collecting",
       tip: `프롬프트 ${remaining}개를 더 모으면 습관별 피드백을 보여드립니다.`,
-      cardTip: `COLLECT ${remaining} MORE PROMPTS`,
+      cardTip: `COLLECT ${remaining} MORE PROMPT${remaining === 1 ? "" : "S"}`,
       remaining,
     };
   }
 
   const h = metrics.habits;
+  if (!h) {
+    return {
+      status: "ready",
+      tip: "이 결과는 옛 규칙의 요약값입니다. 다시 스캔하면 맥락·조건·단계·통째 위임 신호가 열립니다.",
+      cardTip: "RE-SCAN TO UNLOCK 4 HABIT SIGNALS",
+      remaining: 0,
+    };
+  }
+
   if (h) {
     if (h.outsourceRate >= OUTSOURCE_ABOVE) {
       return {
@@ -64,13 +73,6 @@ export function buildFeedback(metrics: Metrics): Feedback {
     if (weakest.rate < RECOMMEND_BELOW) {
       return { status: "ready", ...weakest, remaining: 0 };
     }
-  } else if (metrics.competence < 50) {
-    return {
-      status: "ready",
-      tip: "다음 요청에는 지켜야 할 조건이나 완료 기준을 한 줄 적어보세요.",
-      cardTip: "ADD A CONSTRAINT OR DONE CHECK",
-      remaining: 0,
-    };
   }
 
   if (metrics.profanityRate > 0) {

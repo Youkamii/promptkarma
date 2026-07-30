@@ -6,7 +6,7 @@
  */
 import { renderCard, renderFeedbackCard, renderPolytope } from "../src/card.js";
 import type { Theme } from "../src/card.js";
-import { MIN_SAMPLE, type Metrics, type KarmaMode } from "../src/metrics.js";
+import { METRIC_VERSION, MIN_SAMPLE, type Metrics, type KarmaMode } from "../src/metrics.js";
 import { getCard, type CardRow } from "../src/db.js";
 
 function asKarma(v: unknown): KarmaMode {
@@ -24,7 +24,9 @@ function clamp(n: number, lo: number, hi: number): number {
 /** hex 색만 허용(SVG 인젝션 차단). "#" 없으면 붙이고, 아니면 undefined. */
 function color(v: unknown): string | undefined {
   const s = String(Array.isArray(v) ? v[0] : v ?? "").trim().replace(/^#/, "");
-  return /^[0-9a-fA-F]{3,8}$/.test(s) ? "#" + s : undefined;
+  return /^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s)
+    ? "#" + s
+    : undefined;
 }
 function first(v: unknown): string | undefined {
   const s = String(Array.isArray(v) ? v[0] : v ?? "").trim();
@@ -47,9 +49,10 @@ export async function handleCard(
   const username = String(q.u ?? q.username ?? "you").slice(0, 39) || "you";
 
   let metrics: Metrics | null = null;
-  let provenance: "self-reported" | "unverified" = "unverified";
+  let provenance: "self-reported" | "unverified" | "missing" | "unavailable" = "missing";
   let scannedAt: string | null = null;
   let filterVersion: number | undefined;
+  let loadUnavailable = false;
   try {
     const row = await loadCard(username);
     if (row) {
@@ -60,7 +63,7 @@ export async function handleCard(
         row.outsourceRate,
       ].every((rate) => rate != null && Number.isFinite(Number(rate)));
       metrics = {
-        metricVersion: row.metricVersion ?? 1,
+        metricVersion: row.metricVersion ?? (hasHabits ? METRIC_VERSION : 1),
         prompts: row.prompts, slash: 0,
         profanityRate: row.profanity, competence: row.competence,
         promptsPerSwear: row.promptsPerSwear, praiseRate: row.praise ?? 0,
@@ -78,7 +81,9 @@ export async function handleCard(
       scannedAt = row.scannedAt;
       filterVersion = row.filterVersion ?? 1;
     }
-  } catch { /* DB 장애 → 폴백 */ }
+  } catch {
+    loadUnavailable = true;
+  }
 
   if (!metrics && q.f != null) {
     const prompts = Math.max(0, Math.floor(num(q.p)));
@@ -90,9 +95,11 @@ export async function handleCard(
       promptsPerSwear: pps > 0 ? pps : null, praiseRate: clamp(num(q.praise), 0, 100),
       karma: asKarma(q.karma), eligible: prompts >= MIN_SAMPLE,
     };
+    provenance = "unverified";
     filterVersion = positiveInt(q.fv) ?? 1;
   }
   if (!metrics) {
+    provenance = loadUnavailable ? "unavailable" : "missing";
     metrics = { prompts: 0, slash: 0, profanityRate: 0, competence: 0, promptsPerSwear: null, praiseRate: 0, karma: "white", eligible: false };
   }
 
@@ -120,11 +127,16 @@ export async function handleCard(
   };
   const svg = style === "polytope"
     ? renderPolytope(input)
-    : style === "feedback"
-      ? renderFeedbackCard(input)
-      : renderCard(input);
+    : style === "classic"
+      ? renderCard(input)
+      : renderFeedbackCard(input);
   res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=300");
+  res.setHeader(
+    "Cache-Control",
+    provenance === "unavailable"
+      ? "no-store, max-age=0"
+      : "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
+  );
   res.status(200).send(svg);
 }
 

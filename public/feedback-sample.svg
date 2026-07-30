@@ -1,44 +1,65 @@
-<svg width="700" height="260" viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">promptkarma 로컬 스캔 예시</title>
-  <desc id="desc">맥락, 조건, 단계 표현의 관찰 비율과 다음 프롬프트에서 시험해볼 한 가지를 보여준다.</desc>
+<svg width="700" height="300" viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="sample-dev prompt habits feedback">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="fbg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#17161f"/>
       <stop offset="1" stop-color="#0d0c12"/>
     </linearGradient>
+    <linearGradient id="fmark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c084fc"/>
+      <stop offset="1" stop-color="#5eead4"/>
+    </linearGradient>
+    <filter id="fglow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <rect width="700" height="260" rx="14" fill="url(#bg)"/>
-  <rect x=".75" y=".75" width="698.5" height="258.5" rx="13" fill="none" stroke="#fff" stroke-opacity=".12"/>
+  <rect width="700" height="300" rx="16" fill="url(#fbg)"/>
+  <rect x="0.75" y="0.75" width="698.5" height="298.5" rx="15" fill="none" stroke="#ffffff" stroke-opacity="0.12"/>
+  <rect x="20" y="20" width="34" height="34" rx="10" fill="url(#fmark)"/>
+  <path d="M30 44V30h8.2c4.4 0 7.2 2.3 7.2 6s-2.8 6-7.2 6H34v2zM34 34v4h4c2 0 3-.7 3-2s-1-2-3-2z" fill="#0d0c12"/>
+  <text x="66" y="35" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="15" font-weight="850" fill="#ececf4" letter-spacing="0.5">PROMPTKARMA</text>
+  <text x="66" y="52" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" font-weight="700" fill="#8b88a0" letter-spacing="1.05">PERSONAL PROMPT SIGNALS · HEURISTIC</text>
+  <text x="676" y="36" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="14" font-weight="750" text-anchor="end" fill="#ececf4">@sample-dev</text>
+  <text x="676" y="53" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" text-anchor="end" fill="#8b88a0">LOCAL SCAN</text>
 
-  <g font-family="'Segoe UI','Malgun Gothic',system-ui,sans-serif">
-    <text x="24" y="34" font-size="17" font-weight="800" fill="#c084fc" letter-spacing=".5">PROMPT HABITS</text>
-    <text x="676" y="34" font-size="14" text-anchor="end" fill="#8b88a0">LOCAL SCAN</text>
-    <text x="24" y="55" font-size="12.5" fill="#8b88a0">관찰 신호이며 능력 평가가 아닙니다</text>
+  <rect x="20" y="72" width="236" height="132" rx="14" fill="#2a2836" opacity="0.45"/>
+  <circle cx="88" cy="137" r="42" fill="none" stroke="#2a2836" stroke-width="8"/>
+  <circle cx="88" cy="137" r="42" fill="none" stroke="#5eead4" stroke-width="8" stroke-linecap="round" stroke-dasharray="180.0 263.9" transform="rotate(-90 88 137)"/>
+  <text x="88" y="135" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="23" font-weight="850" text-anchor="middle" fill="#ececf4">68.2</text>
+  <text x="88" y="152" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="9.5" font-weight="750" text-anchor="middle" fill="#8b88a0">PERCENT</text>
+  <text x="148" y="112" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" font-weight="800" letter-spacing="1" fill="#8b88a0">STRUCTURE</text>
+  <text x="148" y="136" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="14" font-weight="800" fill="#ececf4">OBSERVED</text>
+  <text x="148" y="153" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="14" font-weight="800" fill="#ececf4">MARKERS</text>
+  <text x="148" y="176" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="9.5" font-weight="750" letter-spacing="0.75" fill="#8b88a0">NO-SWEAR</text>
+  <text x="148" y="195" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="15" font-weight="850" fill="#c084fc">98.6%</text>
 
-    <g>
-      <rect x="24" y="70" width="208" height="88" rx="10" fill="#2a2836" opacity=".55"/>
-      <text x="40" y="95" font-size="12" font-weight="700" fill="#8b88a0">맥락 단서</text>
-      <text x="40" y="132" font-size="29" font-weight="800" fill="#5eead4">31.3%</text>
-      <text x="40" y="149" font-size="10.5" fill="#8b88a0">파일 · 코드 · 링크</text>
-    </g>
-    <g>
-      <rect x="246" y="70" width="208" height="88" rx="10" fill="#2a2836" opacity=".55"/>
-      <text x="262" y="95" font-size="12" font-weight="700" fill="#8b88a0">조건 · 기준</text>
-      <text x="262" y="132" font-size="29" font-weight="800" fill="#5eead4">18.8%</text>
-      <text x="262" y="149" font-size="10.5" fill="#8b88a0">요구사항 · 완료 기준</text>
-    </g>
-    <g>
-      <rect x="468" y="70" width="208" height="88" rx="10" fill="#2a2836" opacity=".55"/>
-      <text x="484" y="95" font-size="12" font-weight="700" fill="#8b88a0">단계 · 목록</text>
-      <text x="484" y="132" font-size="29" font-weight="800" fill="#5eead4">12.5%</text>
-      <text x="484" y="149" font-size="10.5" fill="#8b88a0">목록 항목 2개 이상</text>
-    </g>
+  <rect x="270" y="72" width="410" height="132" rx="14" fill="#2a2836" opacity="0.28"/>
 
-    <text x="24" y="181" font-size="11.5" fill="#8b88a0">다음에 해볼 한 가지</text>
-    <rect x="24" y="190" width="652" height="38" rx="8" fill="#2a2836"/>
-    <text x="350" y="215" font-size="14" font-weight="700" text-anchor="middle" fill="#ececf4">큰 요청은 두 단계 이상의 목록으로 나눠 적어보세요.</text>
+      <text x="286" y="96" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" font-weight="800" letter-spacing="1.2" fill="#c084fc">SIGNAL MIX</text>
 
-    <text x="24" y="248" font-size="11.5" fill="#8b88a0">N=128 · RULES F1/M2 · LOCAL SCAN</text>
-    <text x="676" y="248" font-size="11.5" text-anchor="end" fill="#8b88a0">말투 참고 · 욕설 어근 1.6%</text>
-  </g>
+      <text x="286" y="121" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" font-weight="750" letter-spacing="0.9" fill="#8b88a0">CONTEXT</text>
+      <text x="450" y="121" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="12" font-weight="800" text-anchor="end" fill="#ececf4">54.7%</text>
+      <rect x="286" y="131" width="164" height="5" rx="2.5" fill="#2a2836"/>
+      <rect x="286" y="131" width="89.7" height="5" rx="2.5" fill="#5eead4" opacity="0.82"/>
+
+      <text x="488" y="121" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" font-weight="750" letter-spacing="0.9" fill="#8b88a0">CONSTRAINTS</text>
+      <text x="652" y="121" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="12" font-weight="800" text-anchor="end" fill="#ececf4">18.2%</text>
+      <rect x="488" y="131" width="164" height="5" rx="2.5" fill="#2a2836"/>
+      <rect x="488" y="131" width="29.8" height="5" rx="2.5" fill="#c084fc" opacity="0.82"/>
+
+      <text x="286" y="170" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" font-weight="750" letter-spacing="0.9" fill="#8b88a0">STEPS</text>
+      <text x="450" y="170" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="12" font-weight="800" text-anchor="end" fill="#ececf4">45.9%</text>
+      <rect x="286" y="180" width="164" height="5" rx="2.5" fill="#2a2836"/>
+      <rect x="286" y="180" width="75.3" height="5" rx="2.5" fill="#c084fc" opacity="0.82"/>
+
+      <text x="488" y="170" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" font-weight="750" letter-spacing="0.9" fill="#8b88a0">HANDOFF / NO RULE</text>
+      <text x="652" y="170" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="12" font-weight="800" text-anchor="end" fill="#ececf4">6.1%</text>
+      <rect x="488" y="180" width="164" height="5" rx="2.5" fill="#2a2836"/>
+      <rect x="488" y="180" width="10.0" height="5" rx="2.5" fill="#c084fc" opacity="0.82"/>
+
+  <rect x="20" y="216" width="660" height="47" rx="12" fill="#2a2836" opacity="0.72"/>
+  <rect x="20" y="216" width="5" height="47" rx="2.5" fill="#c084fc"/>
+  <text x="39" y="235" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="9.5" font-weight="850" letter-spacing="1.25" fill="#c084fc">NEXT MOVE</text>
+  <text x="39" y="253" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="13" font-weight="750" fill="#ececf4" letter-spacing="0.2">ADD A CONSTRAINT OR DONE CHECK</text>
+  <text x="20" y="286" font-family="'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#8b88a0">N=148 · RULES F1/M2 · LOCAL SCAN</text>
 </svg>

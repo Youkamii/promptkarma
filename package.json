@@ -1,6 +1,6 @@
 {
   "name": "promptkarma",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Claude Code 프롬프트 습관을 로컬에서 분석하고 다음 행동을 제안하는 CLI",
   "type": "module",
   "bin": {
@@ -11,8 +11,9 @@
     "public/feedback-sample.svg"
   ],
   "scripts": {
-    "dev": "bun run src/index.ts",
+    "dev": "bun run scripts/preview.ts",
     "scan": "bun run src/index.ts scan",
+    "sample": "bun run scripts/generate-sample.ts",
     "build": "bun build src/index.ts --target=node --outdir=dist",
     "typecheck": "tsc --noEmit",
     "test": "bun run src/core.test.ts && bun run src/polytope.test.ts",

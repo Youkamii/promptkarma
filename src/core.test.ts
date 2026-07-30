@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildFeedback } from "./feedback.js";
@@ -188,21 +188,27 @@ ok("피드백 카드는 관찰값·표본·자기신고 한계를 그대로 표�
     metrics: sampleMetrics(),
     provenance: "self-reported",
   });
-  assert.match(svg, /STRUCTURE SIGNAL/);
-  assert.match(svg, />42\.3%<\/text>/);
-  assert.match(svg, />2\.5%<\/text>/);
+  assert.match(svg, />STRUCTURE<\/text>/);
+  assert.match(svg, />42\.3<\/text>/);
+  assert.match(svg, />97\.5%<\/text>/);
+  assert.match(svg, />CONTEXT<\/text>[\s\S]*>40\.0%<\/text>/);
+  assert.match(svg, />CONSTRAINTS<\/text>[\s\S]*>10\.0%<\/text>/);
+  assert.match(svg, />STEPS<\/text>[\s\S]*>20\.0%<\/text>/);
+  assert.match(svg, />HANDOFF \/ NO RULE<\/text>[\s\S]*>3\.0%<\/text>/);
   assert.match(svg, /N=100 · RULES F1\/M2 · SELF-REPORTED/);
   assert.match(svg, /ADD A CONSTRAINT OR DONE CHECK/);
-  assert.doesNotMatch(svg, /INTELLECT|KARMA|ABILITY TEST[^<]*YES/);
+  assert.doesNotMatch(svg, /\bINTELLECT\b|>\s*KARMA\s*<|ABILITY TEST[^<]*YES/);
 });
 
 ok("규칙 버전이 없는 예전 state는 새 규칙으로 가장하지 않는다", () => {
   const svg = renderFeedbackCard({
     username: "legacy-state",
-    metrics: sampleMetrics({ metricVersion: undefined }),
+    metrics: sampleMetrics({ metricVersion: undefined, habits: undefined }),
     provenance: "local",
   });
   assert.match(svg, /RULES F1\/M1/);
+  assert.match(svg, /DETAIL VIEW NEEDS A FRESH SCAN/);
+  assert.match(svg, /RE-SCAN TO UNLOCK 4 HABIT SIGNALS/);
 });
 
 ok("모든 카드 스타일은 작은 표본을 COLLECTING으로 낮춘다", () => {
@@ -213,7 +219,7 @@ ok("모든 카드 스타일은 작은 표본을 COLLECTING으로 낮춘다", () 
       provenance: "unverified",
     });
     assert.match(svg, /COLLECTING 29\/30/);
-    assert.doesNotMatch(svg, />42\.3%<\/text>|AFFIRMING|INTELLECT|KARMA/);
+    assert.doesNotMatch(svg, />42\.3%<\/text>|AFFIRMING|\bINTELLECT\b|>\s*KARMA\s*</);
     assert.match(svg, /UNVERIFIED URL DATA/);
   }
 });
@@ -226,6 +232,38 @@ ok("카드 사용자명을 SVG 이스케이프한다", () => {
   });
   assert.doesNotMatch(svg, /<script>/);
   assert.match(svg, /&lt;script&gt;&quot;/);
+});
+
+ok("긴 사용자명은 접근성 이름은 보존하고 화면 표시만 줄인다", () => {
+  const username = "W".repeat(39);
+  const svg = renderFeedbackCard({
+    username,
+    metrics: sampleMetrics(),
+    provenance: "local",
+  });
+  assert.match(svg, new RegExp(`aria-label="${username} prompt habits feedback"`));
+  assert.match(svg, /@W{19}…<\/text>/);
+  assert.doesNotMatch(svg, new RegExp(`>@${username}<`));
+});
+
+ok("깨진 숫자는 카드에 NaN이나 Infinity로 새지 않는다", () => {
+  const svg = renderFeedbackCard({
+    username: "broken-input",
+    metrics: sampleMetrics({
+      prompts: Number.POSITIVE_INFINITY,
+      competence: Number.NaN,
+      profanityRate: Number.POSITIVE_INFINITY,
+      habits: {
+        contextRate: Number.NaN,
+        constraintRate: Number.POSITIVE_INFINITY,
+        stepRate: -10,
+        outsourceRate: 120,
+      },
+    }),
+    provenance: "unverified",
+  });
+  assert.doesNotMatch(svg, /NaN|Infinity/);
+  assert.match(svg, /N=0 · RULES F1\/M2/);
 });
 
 await okAsync("제출 API는 잘못된 JSON과 GitHub 이름을 DB 전에 거절한다", async () => {
@@ -277,7 +315,7 @@ await okAsync("제출 API는 스캔 시각·규칙 버전·세부 습관을 보�
   assert.equal(saved?.metricVersion, 2);
 });
 
-await okAsync("카드 API는 기존 기본 크기를 지키고 새 피드백 스타일을 명시적으로 제공한다", async () => {
+await okAsync("카드 API는 코치 카드를 기본으로 쓰고 기존 카드는 classic으로 보존한다", async () => {
   const call = async (query: Record<string, unknown>, row: CardRow | null = null) => {
     let status = 0;
     let svg = "";
@@ -290,22 +328,30 @@ await okAsync("카드 API는 기존 기본 크기를 지키고 새 피드백 스
     await handleCard({ query }, res, async () => row);
     return { status, svg, headers };
   };
-  const legacy = await call({ u: "tester", f: 2.5, d: 42.3, p: 100 });
-  assert.equal(legacy.status, 200);
+  const feedback = await call({ u: "tester", f: 2.5, d: 42.3, p: 100, mv: 2 });
+  assert.equal(feedback.status, 200);
+  assert.match(feedback.svg, /width="700" height="300"/);
+  assert.match(feedback.svg, /PROMPTKARMA/);
+  assert.match(feedback.svg, /DETAIL VIEW NEEDS A FRESH SCAN/);
+  assert.match(feedback.svg, /RULES F1\/M2/);
+  assert.match(feedback.svg, /UNVERIFIED URL DATA/);
+  assert.match(String(feedback.headers.get("Content-Type")), /image\/svg\+xml/);
+
+  for (const style of ["coach", "feedback", "unknown"]) {
+    const alias = await call({ u: "tester", f: 2.5, d: 42.3, p: 100, style });
+    assert.match(alias.svg, /width="700" height="300"/);
+    assert.match(alias.svg, /PROMPTKARMA/);
+  }
+
+  const legacy = await call({ u: "tester", f: 2.5, d: 42.3, p: 100, style: "classic" });
   assert.match(legacy.svg, /width="500" height="200"/);
   assert.match(legacy.svg, /no-swear prompts/);
-  assert.match(legacy.svg, /UNVERIFIED URL DATA/);
   assert.doesNotMatch(legacy.svg, /intelligence|karma/);
-  assert.match(String(legacy.headers.get("Content-Type")), /image\/svg\+xml/);
-
-  const feedback = await call({ u: "tester", f: 2.5, d: 42.3, p: 100, style: "feedback", mv: 2 });
-  assert.match(feedback.svg, /width="700" height="260"/);
-  assert.match(feedback.svg, /PROMPT HABITS/);
-  assert.match(feedback.svg, /RULES F1\/M2/);
 
   const empty = await call({ u: "new-user" });
-  assert.match(empty.svg, /width="500" height="200"/);
+  assert.match(empty.svg, /width="700" height="300"/);
   assert.match(empty.svg, /COLLECTING 0\/30/);
+  assert.match(empty.svg, /NO PUBLIC SCAN/);
   assert.doesNotMatch(empty.svg, /AFFIRMING/);
 
   const stored = await call({ u: "tester", style: "feedback" }, {
@@ -328,6 +374,50 @@ await okAsync("카드 API는 기존 기본 크기를 지키고 새 피드백 스
   assert.match(stored.svg, /SELF-REPORTED/);
   assert.match(stored.svg, /SCANNED 2026-07-29/);
   assert.match(stored.svg, /ADD A CONSTRAINT OR DONE CHECK/);
+
+  const inferredM2 = await call({ u: "tester" }, {
+    username: "Tester",
+    profanity: 2.5,
+    competence: 42.3,
+    prompts: 100,
+    promptsPerSwear: 40,
+    praise: 0,
+    karma: "white",
+    contextRate: 40,
+    constraintRate: 10,
+    stepRate: 20,
+    outsourceRate: 3,
+    scannedAt: null,
+    filterVersion: 1,
+    metricVersion: null,
+    updatedAt: "2026-07-30T12:00:00.000Z",
+  });
+  assert.match(inferredM2.svg, /RULES F1\/M2/);
+  assert.match(inferredM2.svg, />CONTEXT<\/text>/);
+
+  const unavailable = await call({ u: "tester" }, null);
+  await handleCard({ query: { u: "tester" } }, {
+    setHeader(name: string, value: string) { unavailable.headers.set(name, value); },
+    status(code: number) { unavailable.status = code; return this; },
+    send(value: string) { unavailable.svg = value; return this; },
+  }, async () => { throw new Error("database offline"); });
+  assert.match(unavailable.svg, /PUBLIC CARD TEMPORARILY UNAVAILABLE/);
+  assert.match(unavailable.svg, /DATA UNAVAILABLE/);
+  assert.doesNotMatch(unavailable.svg, /NO PUBLIC SCAN/);
+  assert.match(String(unavailable.headers.get("Cache-Control")), /no-store/);
+});
+
+ok("랜딩은 모바일 미리보기와 배지 제작 흐름을 계속 노출한다", () => {
+  const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(html, /id="username"/);
+  assert.match(html, /data-style="coach"/);
+  assert.match(html, /data-style="polytope"/);
+  assert.match(html, /data-style="classic"/);
+  assert.match(html, /data-theme="cyberpunk"/);
+  assert.match(html, /id="copy-markdown"/);
+  assert.match(html, /style=coach/);
+  assert.match(html, /navigator\.clipboard/);
+  assert.doesNotMatch(html, /\.preview\s*\{\s*display:\s*none/);
 });
 
 console.log(`\n${checks}개 핵심 검사 통과\n`);
